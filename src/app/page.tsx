@@ -1,25 +1,31 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
 
-export default async function Home() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 
-  if (!user) {
-    redirect("/login");
-  }
+export default function Home() {
+  const { user, profile, loading } = useAuth();
+  const router = useRouter();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  useEffect(() => {
+    if (loading) return;
 
-  if (profile?.role === "viewer") {
-    redirect("/frontend");
-  } else {
-    redirect("/dashboard");
-  }
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    if (profile?.role === "viewer") {
+      router.replace("/frontend");
+    } else {
+      router.replace("/dashboard");
+    }
+  }, [user, profile, loading, router]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <p className="text-muted-foreground">Laden...</p>
+    </div>
+  );
 }

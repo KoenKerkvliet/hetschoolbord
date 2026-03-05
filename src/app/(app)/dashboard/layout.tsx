@@ -1,36 +1,34 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+"use client";
+
+import { RouteGuard } from "@/components/auth/route-guard";
+import { useAuth } from "@/lib/auth-context";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  return (
+    <RouteGuard
+      requiredRoles={["editor", "admin", "super_admin"]}
+      redirectTo="/frontend"
+    >
+      <DashboardShell>{children}</DashboardShell>
+    </RouteGuard>
+  );
+}
 
-  if (!user) {
-    redirect("/login");
-  }
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { profile } = useAuth();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) {
-    redirect("/login");
-  }
-
-  if (profile.role === "viewer") {
-    redirect("/frontend");
-  }
+  if (!profile) return null;
 
   return (
     <SidebarProvider>

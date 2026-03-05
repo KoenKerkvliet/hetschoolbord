@@ -1,35 +1,53 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { ContentDisplay } from "@/components/frontend/content-display";
+import type { ContentItem } from "@/lib/types/database";
 
-export default async function FrontendPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function FrontendPage() {
+  return (
+    <RouteGuard>
+      <FrontendContent />
+    </RouteGuard>
+  );
+}
 
-  if (!user) redirect("/login");
+function FrontendContent() {
+  const { profile } = useAuth();
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  useEffect(() => {
+    async function fetchContent() {
+      if (!profile?.organization_id) return;
+      const { data } = await supabase
+        .from("content")
+        .select("*")
+        .eq("organization_id", profile.organization_id)
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true });
+      setContent(data ?? []);
+      setLoading(false);
+    }
+    fetchContent();
+  }, [profile, supabase]);
 
-  if (!profile || !profile.organization_id) redirect("/login");
-
-  // Fetch initial published content
-  const { data: initialContent } = await supabase
-    .from("content")
-    .select("*")
-    .eq("organization_id", profile.organization_id)
-    .eq("is_published", true)
-    .order("sort_order", { ascending: true });
+  if (loading || !profile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <p className="text-white/40">Laden...</p>
+      </div>
+    );
+  }
 
   return (
     <ContentDisplay
-      organizationId={profile.organization_id}
-      initialContent={initialContent ?? []}
+      organizationId={profile.organization_id!}
+      initialContent={content}
       userRole={profile.role}
     />
   );

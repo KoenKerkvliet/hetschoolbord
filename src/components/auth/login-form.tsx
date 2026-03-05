@@ -52,7 +52,6 @@ export function LoginForm() {
       }
     }
 
-    router.refresh();
   }
 
   return (

@@ -1,22 +1,12 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useAuth } from "@/lib/auth-context";
 import { ProfileForm } from "@/components/dashboard/profile-form";
 
-export default async function ProfilePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function ProfilePage() {
+  const { user, profile } = useAuth();
 
-  if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile) redirect("/login");
+  if (!profile || !user) return null;
 
   return (
     <div className="space-y-6">

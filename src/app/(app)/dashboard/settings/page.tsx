@@ -1,30 +1,52 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
+import { RouteGuard } from "@/components/auth/route-guard";
 import { SettingsForm } from "@/components/dashboard/settings-form";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Organization } from "@/lib/types/database";
 
-export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export default function SettingsPage() {
+  return (
+    <RouteGuard requiredRoles={["admin", "super_admin"]} redirectTo="/dashboard">
+      <SettingsContent />
+    </RouteGuard>
+  );
+}
 
-  if (!user) redirect("/login");
+function SettingsContent() {
+  const { profile } = useAuth();
+  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  useEffect(() => {
+    async function fetchOrg() {
+      if (!profile?.organization_id) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", profile.organization_id)
+        .single();
+      setOrganization(data);
+      setLoading(false);
+    }
+    fetchOrg();
+  }, [profile, supabase]);
 
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    redirect("/dashboard");
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold">Instellingen</h1>
+        <Skeleton className="h-48 w-full" />
+      </div>
+    );
   }
-
-  const { data: organization } = await supabase
-    .from("organizations")
-    .select("*")
-    .eq("id", profile.organization_id!)
-    .single();
 
   return (
     <div className="space-y-6">
@@ -32,9 +54,7 @@ export default async function SettingsPage() {
       {organization ? (
         <SettingsForm organization={organization} />
       ) : (
-        <p className="text-muted-foreground">
-          Geen organisatie gekoppeld.
-        </p>
+        <p className="text-muted-foreground">Geen organisatie gekoppeld.</p>
       )}
     </div>
   );
