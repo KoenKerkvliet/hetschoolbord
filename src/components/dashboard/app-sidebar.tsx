@@ -9,6 +9,8 @@ import {
   User,
   Monitor,
   LogOut,
+  PanelsTopLeft,
+  Layers,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -94,6 +96,32 @@ export function AppSidebar({ profile }: AppSidebarProps) {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {isAdmin && (
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith("/dashboard/pages")}
+                    >
+                      <Link href="/dashboard/pages">
+                        <PanelsTopLeft />
+                        <span>Pagina&apos;s</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === "/dashboard/sections"}
+                    >
+                      <Link href="/dashboard/sections">
+                        <Layers />
+                        <span>Secties</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
