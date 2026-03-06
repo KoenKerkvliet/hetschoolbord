@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink, User } from "lucide-react";
+import { ExternalLink, User, Calendar } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import DOMPurify from "dompurify";
 import type { Section, SectionItem } from "@/lib/types/database";
@@ -98,29 +98,38 @@ export function SectionRenderer({ section }: SectionRendererProps) {
           {items.map((item) => {
             const itemData = item.data as Record<string, string>;
             const rawBody = itemData.body ?? "";
-            // Detecteer of body platte tekst is (backward compatibility)
             const isPlainText = !rawBody.includes("<");
-            const sanitizedBody = isPlainText
-              ? DOMPurify.sanitize(rawBody)
-              : DOMPurify.sanitize(rawBody);
+            const sanitizedBody = DOMPurify.sanitize(rawBody);
             const authorName = itemData.author_name;
+            const publishDate = formatDate(item.created_at);
 
             return (
-              <Card key={item.id} className="border shadow-sm">
-                <CardContent className="p-4">
-                  <h4 className="font-medium">{item.title}</h4>
+              <Card key={item.id} className="relative overflow-hidden border-l-4 border-l-primary/70 shadow-sm">
+                <CardContent className="px-4 py-3">
+                  {/* Header: titel + datum badge */}
+                  <div className="flex items-start justify-between gap-3">
+                    <h4 className="font-semibold text-primary">{item.title}</h4>
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {publishDate}
+                    </span>
+                  </div>
+
+                  {/* Body */}
                   {isPlainText ? (
-                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                    <p className="mt-1.5 text-sm text-muted-foreground whitespace-pre-wrap">
                       {rawBody}
                     </p>
                   ) : (
                     <div
-                      className="mt-1 text-sm text-muted-foreground prose prose-sm max-w-none"
+                      className="mt-1.5 text-sm text-muted-foreground prose prose-sm max-w-none"
                       dangerouslySetInnerHTML={{ __html: sanitizedBody }}
                     />
                   )}
+
+                  {/* Footer: auteur */}
                   {authorName && (
-                    <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/70 border-t pt-2">
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground/60">
                       <User className="h-3 w-3" />
                       <span>{authorName}</span>
                     </div>
@@ -165,6 +174,23 @@ function ensureProtocol(url: string): string {
     return url;
   }
   return `https://${url}`;
+}
+
+/**
+ * Formatteert een ISO-datumstring naar een leesbare Nederlandse datum.
+ * "2026-03-06T12:00:00Z" → "6 mrt 2026"
+ */
+function formatDate(isoString: string): string {
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleDateString("nl-NL", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 function getIcon(name: string): React.ComponentType<{ className?: string }> | null {
