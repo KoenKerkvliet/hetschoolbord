@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { PageRenderer } from "@/components/frontend/page-renderer";
 import { ContentDisplay } from "@/components/frontend/content-display";
-import type { Page, ContentItem } from "@/lib/types/database";
+import { generateThemeOverrides } from "@/lib/utils/color";
+import { LayoutDashboard } from "lucide-react";
+import type { Page, ContentItem, Organization } from "@/lib/types/database";
 
 export default function FrontendPage() {
   return (
@@ -21,7 +24,13 @@ function FrontendContent() {
   const supabase = createClient();
   const [pages, setPages] = useState<Page[]>([]);
   const [legacyContent, setLegacyContent] = useState<ContentItem[]>([]);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const canAccessDashboard =
+    profile?.role === "editor" ||
+    profile?.role === "admin" ||
+    profile?.role === "super_admin";
 
   useEffect(() => {
     async function fetchData() {
@@ -29,6 +38,14 @@ function FrontendContent() {
         setLoading(false);
         return;
       }
+
+      // Fetch organization (voor themakleuren)
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", profile.organization_id)
+        .single();
+      setOrganization(orgData);
 
       // Fetch published pages
       const { data: pagesData } = await supabase
@@ -64,10 +81,31 @@ function FrontendContent() {
     );
   }
 
+  // Genereer CSS custom property overrides op basis van organisatie-instellingen
+  const themeOverrides = organization
+    ? generateThemeOverrides(
+        organization.settings as Record<string, unknown>
+      )
+    : {};
+
+  // Dashboard navigation button for editor+ users
+  const dashboardButton = canAccessDashboard ? (
+    <div className="fixed top-4 right-4 z-50">
+      <Link
+        href="/dashboard"
+        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg transition-opacity hover:opacity-90"
+      >
+        <LayoutDashboard className="h-4 w-4" />
+        Beheer
+      </Link>
+    </div>
+  ) : null;
+
   // If there are published pages, show the first one
   if (pages.length > 0) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background" style={themeOverrides}>
+        {dashboardButton}
         <PageRenderer page={pages[0]} />
       </div>
     );
@@ -75,10 +113,13 @@ function FrontendContent() {
 
   // Fallback to legacy content display
   return (
-    <ContentDisplay
-      organizationId={profile.organization_id!}
-      initialContent={legacyContent}
-      userRole={profile.role}
-    />
+    <div style={themeOverrides}>
+      {dashboardButton}
+      <ContentDisplay
+        organizationId={profile.organization_id!}
+        initialContent={legacyContent}
+        userRole={profile.role}
+      />
+    </div>
   );
 }

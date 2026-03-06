@@ -101,22 +101,22 @@ export function AppSidebar({ profile }: AppSidebarProps) {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname.startsWith("/dashboard/pages")}
+                      isActive={pathname === "/dashboard/sections"}
                     >
-                      <Link href="/dashboard/pages">
-                        <PanelsTopLeft />
-                        <span>Pagina&apos;s</span>
+                      <Link href="/dashboard/sections">
+                        <Boxes />
+                        <span>Blokken</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === "/dashboard/sections"}
+                      isActive={pathname.startsWith("/dashboard/pages")}
                     >
-                      <Link href="/dashboard/sections">
-                        <Boxes />
-                        <span>Blokken</span>
+                      <Link href="/dashboard/pages">
+                        <PanelsTopLeft />
+                        <span>Pagina&apos;s</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

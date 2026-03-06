@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil, ArrowUp, ArrowDown } from "lucide-react";
+import { IconPicker } from "@/components/dashboard/icon-picker";
 import type { SectionItem } from "@/lib/types/database";
 
 export function SectionItemsEditor({
@@ -164,12 +165,8 @@ export function SectionItemsEditor({
             {sectionType === "snelkoppelingen" ? (
               <>
                 <div className="space-y-2">
-                  <Label>Icoon (Lucide naam)</Label>
-                  <Input
-                    value={icon}
-                    onChange={(e) => setIcon(e.target.value)}
-                    placeholder="Bijv. Home, Mail, Calendar"
-                  />
+                  <Label>Icoon</Label>
+                  <IconPicker value={icon} onChange={setIcon} />
                 </div>
                 <div className="space-y-2">
                   <Label>URL</Label>
