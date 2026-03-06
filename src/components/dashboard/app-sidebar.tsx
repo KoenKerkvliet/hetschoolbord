@@ -10,7 +10,7 @@ import {
   Monitor,
   LogOut,
   PanelsTopLeft,
-  Layers,
+  Boxes,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -115,8 +115,8 @@ export function AppSidebar({ profile }: AppSidebarProps) {
                       isActive={pathname === "/dashboard/sections"}
                     >
                       <Link href="/dashboard/sections">
-                        <Layers />
-                        <span>Secties</span>
+                        <Boxes />
+                        <span>Blokken</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -14,6 +14,7 @@ interface SectionRendererProps {
 export function SectionRenderer({ section }: SectionRendererProps) {
   const supabase = createClient();
   const [items, setItems] = useState<SectionItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchItems() {
@@ -24,9 +25,19 @@ export function SectionRenderer({ section }: SectionRendererProps) {
         .eq("is_published", true)
         .order("sort_order", { ascending: true });
       setItems(data ?? []);
+      setLoading(false);
     }
     fetchItems();
-  }, [section.id, supabase]);
+  }, [section.id]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">{section.title}</h3>
+        <p className="text-sm text-muted-foreground">Laden...</p>
+      </div>
+    );
+  }
 
   if (items.length === 0) return null;
 

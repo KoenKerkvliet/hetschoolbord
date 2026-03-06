@@ -7,7 +7,7 @@ export default function SectionsPage() {
   return (
     <RouteGuard requiredRoles={["admin", "super_admin"]} redirectTo="/dashboard">
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">Secties</h1>
+        <h1 className="text-2xl font-bold">Blokken</h1>
         <SectionManager />
       </div>
     </RouteGuard>

@@ -70,10 +70,10 @@ export function SectionManager() {
         .update({ title: sectionTitle })
         .eq("id", editingSection.id);
       if (error) {
-        toast.error("Fout bij bijwerken sectie");
+        toast.error("Fout bij bijwerken blok");
         return;
       }
-      toast.success("Sectie bijgewerkt");
+      toast.success("Blok bijgewerkt");
     } else {
       const { error } = await supabase.from("sections").insert({
         title: sectionTitle,
@@ -81,10 +81,10 @@ export function SectionManager() {
         organization_id: profile.organization_id,
       });
       if (error) {
-        toast.error("Fout bij aanmaken sectie");
+        toast.error("Fout bij aanmaken blok");
         return;
       }
-      toast.success("Sectie aangemaakt");
+      toast.success("Blok aangemaakt");
     }
 
     setDialogOpen(false);
@@ -96,10 +96,10 @@ export function SectionManager() {
   async function handleDeleteSection(id: string) {
     const { error } = await supabase.from("sections").delete().eq("id", id);
     if (error) {
-      toast.error("Fout bij verwijderen sectie");
+      toast.error("Fout bij verwijderen blok");
       return;
     }
-    toast.success("Sectie verwijderd");
+    toast.success("Blok verwijderd");
     if (expandedSection === id) setExpandedSection(null);
     fetchSections();
   }
@@ -128,13 +128,13 @@ export function SectionManager() {
         <DialogTrigger asChild>
           <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
-            Nieuwe sectie
+            Nieuw blok
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingSection ? "Sectie bewerken" : "Nieuwe sectie"}
+              {editingSection ? "Blok bewerken" : "Nieuw blok"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -174,7 +174,7 @@ export function SectionManager() {
 
       {sections.length === 0 ? (
         <p className="text-muted-foreground">
-          Nog geen secties. Maak een sectie aan om te beginnen.
+          Nog geen blokken. Maak een blok aan om te beginnen.
         </p>
       ) : (
         <div className="space-y-3">

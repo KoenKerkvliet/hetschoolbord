@@ -426,7 +426,7 @@ function PageBuilder({ page, onBack }: { page: Page; onBack: () => void }) {
       position,
     });
     if (error) {
-      toast.error("Fout bij toewijzen sectie");
+      toast.error("Fout bij toewijzen blok");
       return;
     }
     fetchData();
@@ -532,7 +532,7 @@ function PageBuilder({ page, onBack }: { page: Page; onBack: () => void }) {
         <CardContent className="space-y-4">
           {rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nog geen rijen. Voeg een rij toe om secties te plaatsen.
+              Nog geen rijen. Voeg een rij toe om blokken te plaatsen.
             </p>
           ) : (
             rows.map((row, idx) => (
@@ -629,7 +629,7 @@ function SectionSlot({
 }) {
   const assigned = rowSections.find((s) => s.position === position);
   const label =
-    position === "full" ? "Sectie" : position === "left" ? "Links" : "Rechts";
+    position === "full" ? "Blok" : position === "left" ? "Links" : "Rechts";
 
   return (
     <div className="space-y-1">
@@ -639,7 +639,7 @@ function SectionSlot({
         onValueChange={onAssign}
       >
         <SelectTrigger>
-          <SelectValue placeholder="Kies een sectie" />
+          <SelectValue placeholder="Kies een blok" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">— Geen —</SelectItem>
