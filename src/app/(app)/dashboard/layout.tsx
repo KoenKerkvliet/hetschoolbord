@@ -28,7 +28,15 @@ export default function DashboardLayout({
 function DashboardShell({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
 
-  if (!profile) return null;
+  // RouteGuard garandeert al dat profile bestaat.
+  // Toon een loading fallback voor het onwaarschijnlijke geval.
+  if (!profile) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Laden...</p>
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>

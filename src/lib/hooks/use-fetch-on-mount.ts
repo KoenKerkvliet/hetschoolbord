@@ -22,10 +22,25 @@ export function useFetchOnMount(
 
   const mountedRef = useRef(false);
 
+  // Veilige wrapper die async fouten opvangt (voorkomt unhandled rejections)
+  function safeFetch() {
+    try {
+      const result = fetchRef.current();
+      // Als het een Promise is, vang onverwachte errors op
+      if (result && typeof result === "object" && "catch" in result) {
+        (result as Promise<void>).catch((err) => {
+          console.error("useFetchOnMount: onverwachte fout", err);
+        });
+      }
+    } catch (err) {
+      console.error("useFetchOnMount: synchrone fout", err);
+    }
+  }
+
   // Altijd uitvoeren bij mount + dependency wijzigingen
   useEffect(() => {
     mountedRef.current = true;
-    fetchRef.current();
+    safeFetch();
 
     return () => {
       mountedRef.current = false;
@@ -37,13 +52,13 @@ export function useFetchOnMount(
   useEffect(() => {
     function handleVisibilityChange() {
       if (document.visibilityState === "visible" && mountedRef.current) {
-        fetchRef.current();
+        safeFetch();
       }
     }
 
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted && mountedRef.current) {
-        fetchRef.current();
+        safeFetch();
       }
     }
 

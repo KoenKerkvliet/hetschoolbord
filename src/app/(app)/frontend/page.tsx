@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -8,7 +8,7 @@ import { RouteGuard } from "@/components/auth/route-guard";
 import { PageRenderer } from "@/components/frontend/page-renderer";
 import { ContentDisplay } from "@/components/frontend/content-display";
 import { generateThemeOverrides } from "@/lib/utils/color";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, RefreshCw } from "lucide-react";
 import type { Page, ContentItem, Organization } from "@/lib/types/database";
 
 export default function FrontendPage() {
@@ -26,55 +26,105 @@ function FrontendContent() {
   const [legacyContent, setLegacyContent] = useState<ContentItem[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const canAccessDashboard =
     profile?.role === "editor" ||
     profile?.role === "admin" ||
     profile?.role === "super_admin";
 
+  const orgId = profile?.organization_id;
+
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchData() {
       try {
-        if (!profile?.organization_id) return;
+        if (!orgId) {
+          setLoading(false);
+          return;
+        }
+
+        setFetchError(null);
 
         // Fetch organization (voor themakleuren)
         const { data: orgData } = await supabase
           .from("organizations")
           .select("*")
-          .eq("id", profile.organization_id)
+          .eq("id", orgId)
           .single();
-        setOrganization(orgData);
+        if (!cancelled) setOrganization(orgData);
 
         // Fetch published pages
         const { data: pagesData } = await supabase
           .from("pages")
           .select("*")
-          .eq("organization_id", profile.organization_id)
+          .eq("organization_id", orgId)
           .eq("is_published", true)
           .order("sort_order", { ascending: true });
 
-        setPages(pagesData ?? []);
+        if (!cancelled) setPages(pagesData ?? []);
 
         // Also fetch legacy content (fallback if no pages exist)
         if (!pagesData || pagesData.length === 0) {
           const { data: contentData } = await supabase
             .from("content")
             .select("*")
-            .eq("organization_id", profile.organization_id)
+            .eq("organization_id", orgId)
             .eq("is_published", true)
             .order("sort_order", { ascending: true });
-          setLegacyContent(contentData ?? []);
+          if (!cancelled) setLegacyContent(contentData ?? []);
         }
       } catch (err) {
         console.error("Fout bij laden frontend:", err);
+        if (!cancelled) setFetchError("Er ging iets mis bij het laden van de content.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchData();
-  }, [profile]);
 
-  if (loading || !profile) {
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
+
+  // RouteGuard garandeert dat profile bestaat.
+  // Toon een laadscherm alleen als we data aan het ophalen zijn.
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Laden...</p>
+      </div>
+    );
+  }
+
+  // Fout bij ophalen data → toon foutmelding met retry
+  if (fetchError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
+        <p className="text-muted-foreground text-center">{fetchError}</p>
+        <button
+          onClick={() => {
+            setLoading(true);
+            setFetchError(null);
+            // Force re-fetch door state te resetten
+            setPages([]);
+            setLegacyContent([]);
+            // Trigger useEffect opnieuw door een state update
+            window.location.reload();
+          }}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Opnieuw proberen
+        </button>
+      </div>
+    );
+  }
+
+  // Als profile niet beschikbaar is (zou niet moeten door RouteGuard)
+  if (!profile) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Laden...</p>

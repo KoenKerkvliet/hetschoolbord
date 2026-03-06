@@ -17,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
+  authError: string | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  authError: null,
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -57,26 +59,41 @@ function setCachedProfile(profile: Profile | null) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialiseer met gecacht profiel zodat we direct content kunnen tonen
-  const cachedProfile = typeof window !== "undefined" ? getCachedProfile() : null;
+  const cachedProfile =
+    typeof window !== "undefined" ? getCachedProfile() : null;
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(cachedProfile);
   const [loading, setLoading] = useState(cachedProfile === null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchProfile = useCallback(
     async (userId: string) => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", userId)
           .single();
+
+        if (error) throw error;
+
         setProfile(data);
         setCachedProfile(data);
+        setAuthError(null);
       } catch {
-        setProfile(null);
-        setCachedProfile(null);
+        // CRUCIAAL: als er al een profiel is (uit cache of eerder geladen),
+        // gooi dat NIET weg. Behoud het zodat de gebruiker content blijft zien.
+        setProfile((prev) => {
+          if (prev) return prev; // Behoud werkend profiel
+          return null;
+        });
+        // Alleen authError zetten als er GEEN werkend profiel is
+        setAuthError((prev) => {
+          // Check of we al een profiel hebben via de state updater
+          return prev ?? "Profiel kon niet geladen worden. Probeer het opnieuw.";
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,11 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-    let initialDone = false;
 
+    // Loading altijd naar false zetten, ongeacht wat er gebeurt
     function finishLoading() {
-      if (mounted && !initialDone) {
-        initialDone = true;
+      if (mounted) {
         setLoading(false);
       }
     }
@@ -97,10 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Als we al een gecacht profiel hebben, is loading al false.
     // We doen alsnog een verse check op de achtergrond.
     if (cachedProfile) {
-      initialDone = true; // Voorkom dat finishLoading() later loading opnieuw op false zet
+      // loading is al false door de useState(cachedProfile === null)
     }
 
-    // 1. Snelle sessie-check vanuit localStorage (GEEN netwerkverzoek)
+    // 1. Sessie-check
     supabase.auth
       .getSession()
       .then(async ({ data: { session } }) => {
@@ -110,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (currentUser) {
           await fetchProfile(currentUser.id);
         } else {
-          // Geen sessie meer → cache wissen
+          // Geen sessie meer → cache wissen (user is uitgelogd)
           setProfile(null);
           setCachedProfile(null);
         }
@@ -118,9 +134,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => {
         if (!mounted) return;
-        setUser(null);
-        setProfile(null);
-        setCachedProfile(null);
+        // Netwerk-fout: behoud gecacht profiel als dat er is
+        if (!cachedProfile) {
+          setUser(null);
+          setProfile(null);
+          setCachedProfile(null);
+        }
         finishLoading();
       });
 
@@ -134,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         await fetchProfile(currentUser.id);
       } else {
+        // Uitgelogd → cache wissen
         setProfile(null);
         setCachedProfile(null);
       }
@@ -141,10 +161,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // 3. Vangnet: als loading na 3 seconden nog true is, forceer stop
+    // Dit vangnet werkt ALTIJD, ongeacht of er een cache is of niet
     const timeout = setTimeout(() => {
-      if (mounted && !initialDone) {
+      if (mounted) {
         console.warn("Auth loading timeout na 3s — forceer laden");
-        finishLoading();
+        setLoading(false);
       }
     }, 3000);
 
@@ -161,15 +182,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setProfile(null);
     setCachedProfile(null);
+    setAuthError(null);
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    setAuthError(null);
+    if (user) {
+      await fetchProfile(user.id);
+    } else {
+      // Probeer opnieuw een sessie te krijgen
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(session.user.id);
+        }
+      } catch {
+        setAuthError("Kan geen verbinding maken. Controleer je internetverbinding.");
+      }
+    }
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signOut, refreshProfile }}
+      value={{ user, profile, loading, authError, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
