@@ -4,31 +4,42 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FileText, Users, Monitor } from "lucide-react";
+import { Boxes, PanelsTopLeft, FileText } from "lucide-react";
 
 export default function DashboardPage() {
-  const [contentCount, setContentCount] = useState<number | null>(null);
-  const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  const [sectionCount, setSectionCount] = useState<number | null>(null);
+  const [itemCount, setItemCount] = useState<number | null>(null);
+  const [pageCount, setPageCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   useEffect(() => {
+    const supabase = createClient();
+
     async function fetchStats() {
-      const [total, published] = await Promise.all([
-        supabase
-          .from("content")
-          .select("*", { count: "exact", head: true }),
-        supabase
-          .from("content")
-          .select("*", { count: "exact", head: true })
-          .eq("is_published", true),
-      ]);
-      setContentCount(total.count ?? 0);
-      setPublishedCount(published.count ?? 0);
-      setLoading(false);
+      try {
+        const [sections, items, pages] = await Promise.all([
+          supabase
+            .from("sections")
+            .select("*", { count: "exact", head: true }),
+          supabase
+            .from("section_items")
+            .select("*", { count: "exact", head: true }),
+          supabase
+            .from("pages")
+            .select("*", { count: "exact", head: true })
+            .eq("is_published", true),
+        ]);
+        setSectionCount(sections.count ?? 0);
+        setItemCount(items.count ?? 0);
+        setPageCount(pages.count ?? 0);
+      } catch {
+        // Stats niet beschikbaar
+      } finally {
+        setLoading(false);
+      }
     }
     fetchStats();
-  }, [supabase]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -37,8 +48,22 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Blokken</CardTitle>
+            <Boxes className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className="text-2xl font-bold">{sectionCount}</div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
-              Totaal content
+              Content items
             </CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -46,37 +71,23 @@ export default function DashboardPage() {
             {loading ? (
               <Skeleton className="h-8 w-12" />
             ) : (
-              <div className="text-2xl font-bold">{contentCount}</div>
+              <div className="text-2xl font-bold">{itemCount}</div>
             )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Gepubliceerd</CardTitle>
-            <Monitor className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">
+              Gepubliceerde pagina&apos;s
+            </CardTitle>
+            <PanelsTopLeft className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {loading ? (
               <Skeleton className="h-8 w-12" />
             ) : (
-              <div className="text-2xl font-bold">{publishedCount}</div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Concepten</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-8 w-12" />
-            ) : (
-              <div className="text-2xl font-bold">
-                {(contentCount ?? 0) - (publishedCount ?? 0)}
-              </div>
+              <div className="text-2xl font-bold">{pageCount}</div>
             )}
           </CardContent>
         </Card>

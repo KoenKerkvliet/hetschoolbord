@@ -35,30 +35,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = useCallback(
     async (userId: string) => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-      setProfile(data);
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .single();
+        setProfile(data);
+      } catch {
+        setProfile(null);
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUser(user);
-      if (user) {
-        fetchProfile(user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+    let mounted = true;
+
+    async function init() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setUser(user);
+        if (user) {
+          await fetchProfile(user.id);
+        }
+      } catch {
+        // Auth check mislukt (netwerk, etc.)
+        if (!mounted) return;
+        setUser(null);
+        setProfile(null);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    });
+    }
+
+    init();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
@@ -68,7 +86,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
