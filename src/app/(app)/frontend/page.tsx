@@ -34,41 +34,42 @@ function FrontendContent() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!profile?.organization_id) {
-        setLoading(false);
-        return;
-      }
+      try {
+        if (!profile?.organization_id) return;
 
-      // Fetch organization (voor themakleuren)
-      const { data: orgData } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", profile.organization_id)
-        .single();
-      setOrganization(orgData);
+        // Fetch organization (voor themakleuren)
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("*")
+          .eq("id", profile.organization_id)
+          .single();
+        setOrganization(orgData);
 
-      // Fetch published pages
-      const { data: pagesData } = await supabase
-        .from("pages")
-        .select("*")
-        .eq("organization_id", profile.organization_id)
-        .eq("is_published", true)
-        .order("sort_order", { ascending: true });
-
-      setPages(pagesData ?? []);
-
-      // Also fetch legacy content (fallback if no pages exist)
-      if (!pagesData || pagesData.length === 0) {
-        const { data: contentData } = await supabase
-          .from("content")
+        // Fetch published pages
+        const { data: pagesData } = await supabase
+          .from("pages")
           .select("*")
           .eq("organization_id", profile.organization_id)
           .eq("is_published", true)
           .order("sort_order", { ascending: true });
-        setLegacyContent(contentData ?? []);
-      }
 
-      setLoading(false);
+        setPages(pagesData ?? []);
+
+        // Also fetch legacy content (fallback if no pages exist)
+        if (!pagesData || pagesData.length === 0) {
+          const { data: contentData } = await supabase
+            .from("content")
+            .select("*")
+            .eq("organization_id", profile.organization_id)
+            .eq("is_published", true)
+            .order("sort_order", { ascending: true });
+          setLegacyContent(contentData ?? []);
+        }
+      } catch (err) {
+        console.error("Fout bij laden frontend:", err);
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
   }, [profile]);

@@ -59,14 +59,19 @@ export function PagesList() {
   }, [profile?.organization_id]);
 
   async function fetchPages() {
-    if (!profile?.organization_id) return;
-    const { data } = await supabase
-      .from("pages")
-      .select("*")
-      .eq("organization_id", profile.organization_id)
-      .order("sort_order", { ascending: true });
-    setPages(data ?? []);
-    setLoading(false);
+    try {
+      if (!profile?.organization_id) return;
+      const { data } = await supabase
+        .from("pages")
+        .select("*")
+        .eq("organization_id", profile.organization_id)
+        .order("sort_order", { ascending: true });
+      setPages(data ?? []);
+    } catch (err) {
+      console.error("Fout bij laden pagina's:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSavePage() {

@@ -24,14 +24,19 @@ export default function ContentPage() {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useFetchOnMount(async () => {
-    if (!profile?.organization_id) return;
-    const { data } = await supabase
-      .from("sections")
-      .select("*")
-      .eq("organization_id", profile.organization_id)
-      .order("created_at", { ascending: true });
-    setSections(data ?? []);
-    setLoading(false);
+    try {
+      if (!profile?.organization_id) return;
+      const { data } = await supabase
+        .from("sections")
+        .select("*")
+        .eq("organization_id", profile.organization_id)
+        .order("created_at", { ascending: true });
+      setSections(data ?? []);
+    } catch (err) {
+      console.error("Fout bij laden content:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [profile?.organization_id]);
 
   if (loading) {

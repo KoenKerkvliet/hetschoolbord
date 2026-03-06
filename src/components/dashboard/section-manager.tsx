@@ -53,14 +53,19 @@ export function SectionManager() {
   }, [profile?.organization_id]);
 
   async function fetchSections() {
-    if (!profile?.organization_id) return;
-    const { data } = await supabase
-      .from("sections")
-      .select("*")
-      .eq("organization_id", profile.organization_id)
-      .order("created_at", { ascending: true });
-    setSections(data ?? []);
-    setLoading(false);
+    try {
+      if (!profile?.organization_id) return;
+      const { data } = await supabase
+        .from("sections")
+        .select("*")
+        .eq("organization_id", profile.organization_id)
+        .order("created_at", { ascending: true });
+      setSections(data ?? []);
+    } catch (err) {
+      console.error("Fout bij laden blokken:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleSaveSection() {

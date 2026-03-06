@@ -25,17 +25,19 @@ function SettingsContent() {
   const [loading, setLoading] = useState(true);
 
   useFetchOnMount(async () => {
-    if (!profile?.organization_id) {
+    try {
+      if (!profile?.organization_id) return;
+      const { data } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("id", profile.organization_id)
+        .single();
+      setOrganization(data);
+    } catch (err) {
+      console.error("Fout bij laden instellingen:", err);
+    } finally {
       setLoading(false);
-      return;
     }
-    const { data } = await supabase
-      .from("organizations")
-      .select("*")
-      .eq("id", profile.organization_id)
-      .single();
-    setOrganization(data);
-    setLoading(false);
   }, [profile?.organization_id]);
 
   if (loading) {

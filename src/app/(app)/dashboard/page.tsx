@@ -17,8 +17,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useFetchOnMount(async () => {
-    if (!profile?.organization_id) return;
     try {
+      if (!profile?.organization_id) return;
       const orgId = profile.organization_id;
       const [sections, items, pages] = await Promise.all([
         supabase

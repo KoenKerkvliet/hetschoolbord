@@ -163,49 +163,56 @@ export function PageRenderer({ page }: PageRendererProps) {
         </div>
       )}
 
-      {/* Rows */}
-      <div className="mx-auto max-w-5xl space-y-8 p-6">
-        {rows.map((row) => {
-          if (row.layout === "full") {
-            const section = row.sections.find(
-              (s) => s.position === "full"
-            )?.section;
-            if (!section) return null;
-            return (
-              <div key={row.id}>
-                <SectionRenderer section={section} />
-              </div>
-            );
-          }
+      {/* Rows — afwisselend wit en lichte primary tint */}
+      {rows.map((row, idx) => {
+        const isAlternate = idx % 2 === 1;
+        const bgClass = isAlternate ? "bg-primary/5" : "bg-background";
 
-          // Half layout
-          const leftSection = row.sections.find(
-            (s) => s.position === "left"
+        if (row.layout === "full") {
+          const section = row.sections.find(
+            (s) => s.position === "full"
           )?.section;
-          const rightSection = row.sections.find(
-            (s) => s.position === "right"
-          )?.section;
-
-          if (!leftSection && !rightSection) return null;
-
+          if (!section) return null;
           return (
-            <div key={row.id} className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div>{leftSection && <SectionRenderer section={leftSection} />}</div>
-              <div>
-                {rightSection && <SectionRenderer section={rightSection} />}
+            <div key={row.id} className={`${bgClass} py-6`}>
+              <div className="mx-auto max-w-5xl px-6">
+                <SectionRenderer section={section} />
               </div>
             </div>
           );
-        })}
+        }
 
-        {rows.length === 0 && !page.hero_enabled && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              Deze pagina heeft nog geen inhoud.
-            </p>
+        // Half layout
+        const leftSection = row.sections.find(
+          (s) => s.position === "left"
+        )?.section;
+        const rightSection = row.sections.find(
+          (s) => s.position === "right"
+        )?.section;
+
+        if (!leftSection && !rightSection) return null;
+
+        return (
+          <div key={row.id} className={`${bgClass} py-6`}>
+            <div className="mx-auto max-w-5xl px-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>{leftSection && <SectionRenderer section={leftSection} />}</div>
+                <div>
+                  {rightSection && <SectionRenderer section={rightSection} />}
+                </div>
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+        );
+      })}
+
+      {rows.length === 0 && !page.hero_enabled && (
+        <div className="text-center py-12 px-6">
+          <p className="text-muted-foreground">
+            Deze pagina heeft nog geen inhoud.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
