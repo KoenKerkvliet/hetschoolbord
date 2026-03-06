@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,8 +54,7 @@ export function PagesList() {
   const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!profile?.organization_id) return;
+  useFetchOnMount(() => {
     fetchPages();
   }, [profile?.organization_id]);
 

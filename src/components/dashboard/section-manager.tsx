@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,8 +48,7 @@ export function SectionManager() {
   const [sectionColumns, setSectionColumns] = useState(4);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!profile?.organization_id) return;
+  useFetchOnMount(() => {
     fetchSections();
   }, [profile?.organization_id]);
 

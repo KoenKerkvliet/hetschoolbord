@@ -1,50 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boxes, PanelsTopLeft, FileText } from "lucide-react";
 
 export default function DashboardPage() {
   const { profile } = useAuth();
+  const supabase = createClient();
   const [sectionCount, setSectionCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  useFetchOnMount(async () => {
     if (!profile?.organization_id) return;
-    const supabase = createClient();
-
-    async function fetchStats() {
-      try {
-        const orgId = profile!.organization_id!;
-        const [sections, items, pages] = await Promise.all([
-          supabase
-            .from("sections")
-            .select("*", { count: "exact", head: true })
-            .eq("organization_id", orgId),
-          supabase
-            .from("section_items")
-            .select("*", { count: "exact", head: true }),
-          supabase
-            .from("pages")
-            .select("*", { count: "exact", head: true })
-            .eq("organization_id", orgId)
-            .eq("is_published", true),
-        ]);
-        setSectionCount(sections.count ?? 0);
-        setItemCount(items.count ?? 0);
-        setPageCount(pages.count ?? 0);
-      } catch {
-        // Stats niet beschikbaar
-      } finally {
-        setLoading(false);
-      }
+    try {
+      const orgId = profile.organization_id;
+      const [sections, items, pages] = await Promise.all([
+        supabase
+          .from("sections")
+          .select("*", { count: "exact", head: true })
+          .eq("organization_id", orgId),
+        supabase
+          .from("section_items")
+          .select("*", { count: "exact", head: true }),
+        supabase
+          .from("pages")
+          .select("*", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .eq("is_published", true),
+      ]);
+      setSectionCount(sections.count ?? 0);
+      setItemCount(items.count ?? 0);
+      setPageCount(pages.count ?? 0);
+    } catch {
+      // Stats niet beschikbaar
+    } finally {
+      setLoading(false);
     }
-    fetchStats();
   }, [profile?.organization_id]);
 
   return (

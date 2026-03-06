@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { SectionItemsEditor } from "@/components/dashboard/section-items-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,19 +23,15 @@ export default function ContentPage() {
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  useEffect(() => {
+  useFetchOnMount(async () => {
     if (!profile?.organization_id) return;
-
-    async function fetchSections() {
-      const { data } = await supabase
-        .from("sections")
-        .select("*")
-        .eq("organization_id", profile!.organization_id!)
-        .order("created_at", { ascending: true });
-      setSections(data ?? []);
-      setLoading(false);
-    }
-    fetchSections();
+    const { data } = await supabase
+      .from("sections")
+      .select("*")
+      .eq("organization_id", profile.organization_id)
+      .order("created_at", { ascending: true });
+    setSections(data ?? []);
+    setLoading(false);
   }, [profile?.organization_id]);
 
   if (loading) {

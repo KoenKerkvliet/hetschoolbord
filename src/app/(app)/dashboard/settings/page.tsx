@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
+import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { SettingsForm } from "@/components/dashboard/settings-form";
 import { UserSectionAccessManager } from "@/components/dashboard/user-section-access";
@@ -19,26 +20,23 @@ export default function SettingsPage() {
 
 function SettingsContent() {
   const { profile } = useAuth();
+  const supabase = createClient();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
-  useEffect(() => {
-    async function fetchOrg() {
-      if (!profile?.organization_id) {
-        setLoading(false);
-        return;
-      }
-      const { data } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", profile.organization_id)
-        .single();
-      setOrganization(data);
+  useFetchOnMount(async () => {
+    if (!profile?.organization_id) {
       setLoading(false);
+      return;
     }
-    fetchOrg();
-  }, [profile, supabase]);
+    const { data } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", profile.organization_id)
+      .single();
+    setOrganization(data);
+    setLoading(false);
+  }, [profile?.organization_id]);
 
   if (loading) {
     return (
