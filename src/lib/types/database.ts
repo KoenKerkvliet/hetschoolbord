@@ -183,6 +183,7 @@ export type Database = {
           data: Record<string, unknown>;
           sort_order: number;
           is_published: boolean;
+          created_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -193,6 +194,7 @@ export type Database = {
           data?: Record<string, unknown>;
           sort_order?: number;
           is_published?: boolean;
+          created_by?: string | null;
         };
         Update: {
           title?: string;
@@ -308,6 +310,7 @@ export type SectionItem = {
   data: Record<string, unknown>;
   sort_order: number;
   is_published: boolean;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 };

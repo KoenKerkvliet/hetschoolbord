@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +15,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Pencil, ArrowUp, ArrowDown, CalendarDays } from "lucide-react";
 import { IconPicker } from "@/components/dashboard/icon-picker";
+import { TiptapEditor } from "@/components/dashboard/tiptap-editor";
 import type { SectionItem } from "@/lib/types/database";
 
 export function SectionItemsEditor({
@@ -26,6 +28,7 @@ export function SectionItemsEditor({
   sectionType: string;
 }) {
   const supabase = createClient();
+  const { profile } = useAuth();
   const [items, setItems] = useState<SectionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<SectionItem | null>(null);
@@ -36,6 +39,8 @@ export function SectionItemsEditor({
   const [icon, setIcon] = useState("");
   const [url, setUrl] = useState("");
   const [body, setBody] = useState("");
+  const [visibleFrom, setVisibleFrom] = useState<string | null>(null);
+  const [visibleUntil, setVisibleUntil] = useState<string | null>(null);
 
   useEffect(() => {
     fetchItems();
@@ -57,15 +62,20 @@ export function SectionItemsEditor({
     setIcon("");
     setUrl("");
     setBody("");
+    setVisibleFrom(null);
+    setVisibleUntil(null);
     setDialogOpen(true);
   }
 
   function openEditDialog(item: SectionItem) {
     setEditingItem(item);
     setTitle(item.title);
-    setIcon((item.data as Record<string, string>).icon ?? "");
-    setUrl((item.data as Record<string, string>).url ?? "");
-    setBody((item.data as Record<string, string>).body ?? "");
+    const itemData = item.data as Record<string, string>;
+    setIcon(itemData.icon ?? "");
+    setUrl(itemData.url ?? "");
+    setBody(itemData.body ?? "");
+    setVisibleFrom(itemData.visible_from ?? null);
+    setVisibleUntil(itemData.visible_until ?? null);
     setDialogOpen(true);
   }
 
@@ -79,7 +89,16 @@ export function SectionItemsEditor({
     }
 
     const data: Record<string, unknown> =
-      sectionType === "snelkoppelingen" ? { icon, url: normalizedUrl } : { body };
+      sectionType === "snelkoppelingen"
+        ? { icon, url: normalizedUrl }
+        : {
+            body,
+            author_name: editingItem
+              ? (editingItem.data as Record<string, string>).author_name ?? profile?.display_name ?? "Onbekend"
+              : profile?.display_name ?? "Onbekend",
+            visible_from: visibleFrom,
+            visible_until: visibleUntil,
+          };
 
     if (editingItem) {
       const { error } = await supabase
@@ -100,6 +119,7 @@ export function SectionItemsEditor({
         title,
         data,
         sort_order: maxSort,
+        created_by: profile?.id ?? null,
       });
       if (error) {
         toast.error("Fout bij aanmaken");
@@ -153,7 +173,7 @@ export function SectionItemsEditor({
             Item toevoegen
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className={sectionType === "mededelingen" ? "sm:max-w-2xl" : ""}>
           <DialogHeader>
             <DialogTitle>
               {editingItem ? "Item bewerken" : "Nieuw item"}
@@ -184,15 +204,105 @@ export function SectionItemsEditor({
                 </div>
               </>
             ) : (
-              <div className="space-y-2">
-                <Label>Bericht</Label>
-                <Textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Typ je bericht..."
-                  rows={4}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>Bericht</Label>
+                  <TiptapEditor content={body} onChange={setBody} />
+                </div>
+
+                {/* Datumvelden voor zichtbaarheid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Zichtbaar vanaf
+                    </Label>
+                    {visibleFrom === null ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-start text-sm font-normal"
+                        onClick={() =>
+                          setVisibleFrom(
+                            new Date().toISOString().split("T")[0]
+                          )
+                        }
+                      >
+                        Direct
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={visibleFrom}
+                          onChange={(e) =>
+                            setVisibleFrom(e.target.value || null)
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setVisibleFrom(null)}
+                          className="shrink-0 text-xs"
+                        >
+                          Direct
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Leeg = direct zichtbaar
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Zichtbaar t/m
+                    </Label>
+                    {visibleUntil === null ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-start text-sm font-normal text-muted-foreground"
+                        onClick={() => {
+                          const nextWeek = new Date();
+                          nextWeek.setDate(nextWeek.getDate() + 7);
+                          setVisibleUntil(
+                            nextWeek.toISOString().split("T")[0]
+                          );
+                        }}
+                      >
+                        Geen einddatum
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={visibleUntil}
+                          onChange={(e) =>
+                            setVisibleUntil(e.target.value || null)
+                          }
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setVisibleUntil(null)}
+                          className="shrink-0 text-xs"
+                        >
+                          Geen einde
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Leeg = altijd zichtbaar
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
             <Button onClick={handleSave} className="w-full">
               {editingItem ? "Opslaan" : "Toevoegen"}
@@ -205,62 +315,77 @@ export function SectionItemsEditor({
         <p className="text-sm text-muted-foreground">Nog geen items.</p>
       ) : (
         <div className="space-y-2">
-          {items.map((item, idx) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between rounded-md border p-3"
-            >
-              <div>
-                <p className="font-medium text-sm">{item.title}</p>
-                {sectionType === "snelkoppelingen" && (
-                  <p className="text-xs text-muted-foreground">
-                    {(item.data as Record<string, string>).url}
-                  </p>
-                )}
-                {sectionType === "mededelingen" && (
-                  <p className="text-xs text-muted-foreground line-clamp-1">
-                    {(item.data as Record<string, string>).body}
-                  </p>
-                )}
+          {items.map((item, idx) => {
+            const itemData = item.data as Record<string, string>;
+            return (
+              <div
+                key={item.id}
+                className="flex items-center justify-between rounded-md border p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm">{item.title}</p>
+                  {sectionType === "snelkoppelingen" && (
+                    <p className="text-xs text-muted-foreground">
+                      {itemData.url}
+                    </p>
+                  )}
+                  {sectionType === "mededelingen" && (
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <p className="text-xs text-muted-foreground line-clamp-1">
+                        {(itemData.body ?? "").replace(/<[^>]*>/g, "").slice(0, 80)}
+                      </p>
+                      {itemData.visible_from && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          Vanaf {itemData.visible_from}
+                        </Badge>
+                      )}
+                      {itemData.visible_until && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          T/m {itemData.visible_until}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={idx === 0}
+                    onClick={() => handleMove(item.id, "up")}
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={idx === items.length - 1}
+                    onClick={() => handleMove(item.id, "down")}
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => openEditDialog(item)}
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={idx === 0}
-                  onClick={() => handleMove(item.id, "up")}
-                >
-                  <ArrowUp className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  disabled={idx === items.length - 1}
-                  onClick={() => handleMove(item.id, "down")}
-                >
-                  <ArrowDown className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => openEditDialog(item)}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

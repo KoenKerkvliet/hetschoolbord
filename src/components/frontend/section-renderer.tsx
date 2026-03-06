@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, User } from "lucide-react";
 import * as LucideIcons from "lucide-react";
+import DOMPurify from "dompurify";
 import type { Section, SectionItem } from "@/lib/types/database";
 
 interface SectionRendererProps {
@@ -24,7 +25,18 @@ export function SectionRenderer({ section }: SectionRendererProps) {
         .eq("section_id", section.id)
         .eq("is_published", true)
         .order("sort_order", { ascending: true });
-      setItems(data ?? []);
+
+      // Filter mededelingen op zichtbaarheidsdatums
+      const today = new Date().toISOString().split("T")[0];
+      const filtered = (data ?? []).filter((item) => {
+        if (section.type !== "mededelingen") return true;
+        const itemData = item.data as Record<string, string>;
+        if (itemData.visible_from && itemData.visible_from > today) return false;
+        if (itemData.visible_until && itemData.visible_until < today) return false;
+        return true;
+      });
+
+      setItems(filtered);
       setLoading(false);
     }
     fetchItems();
@@ -83,16 +95,40 @@ export function SectionRenderer({ section }: SectionRendererProps) {
       <div className="space-y-3">
         <h3 className="text-lg font-semibold">{section.title}</h3>
         <div className="space-y-3">
-          {items.map((item) => (
-            <Card key={item.id}>
-              <CardContent className="p-4">
-                <h4 className="font-medium">{item.title}</h4>
-                <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
-                  {(item.data as Record<string, string>).body}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          {items.map((item) => {
+            const itemData = item.data as Record<string, string>;
+            const rawBody = itemData.body ?? "";
+            // Detecteer of body platte tekst is (backward compatibility)
+            const isPlainText = !rawBody.includes("<");
+            const sanitizedBody = isPlainText
+              ? DOMPurify.sanitize(rawBody)
+              : DOMPurify.sanitize(rawBody);
+            const authorName = itemData.author_name;
+
+            return (
+              <Card key={item.id} className="border shadow-sm">
+                <CardContent className="p-4">
+                  <h4 className="font-medium">{item.title}</h4>
+                  {isPlainText ? (
+                    <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {rawBody}
+                    </p>
+                  ) : (
+                    <div
+                      className="mt-1 text-sm text-muted-foreground prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: sanitizedBody }}
+                    />
+                  )}
+                  {authorName && (
+                    <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground/70 border-t pt-2">
+                      <User className="h-3 w-3" />
+                      <span>{authorName}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     );
