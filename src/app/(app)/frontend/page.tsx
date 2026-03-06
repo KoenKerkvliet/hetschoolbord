@@ -25,7 +25,10 @@ function FrontendContent() {
 
   useEffect(() => {
     async function fetchData() {
-      if (!profile?.organization_id) return;
+      if (!profile?.organization_id) {
+        setLoading(false);
+        return;
+      }
 
       // Fetch published pages
       const { data: pagesData } = await supabase
@@ -51,7 +54,7 @@ function FrontendContent() {
       setLoading(false);
     }
     fetchData();
-  }, [profile, supabase]);
+  }, [profile]);
 
   if (loading || !profile) {
     return (
