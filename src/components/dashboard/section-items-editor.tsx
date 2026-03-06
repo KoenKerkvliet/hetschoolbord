@@ -72,8 +72,14 @@ export function SectionItemsEditor({
   async function handleSave() {
     if (!title.trim()) return;
 
+    // URL normaliseren: protocol toevoegen als het ontbreekt
+    let normalizedUrl = url;
+    if (sectionType === "snelkoppelingen" && url && !url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("//")) {
+      normalizedUrl = `https://${url}`;
+    }
+
     const data: Record<string, unknown> =
-      sectionType === "snelkoppelingen" ? { icon, url } : { body };
+      sectionType === "snelkoppelingen" ? { icon, url: normalizedUrl } : { body };
 
     if (editingItem) {
       const { error } = await supabase

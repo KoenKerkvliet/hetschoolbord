@@ -47,13 +47,16 @@ export function SectionManager() {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!profile?.organization_id) return;
     fetchSections();
-  }, []);
+  }, [profile?.organization_id]);
 
   async function fetchSections() {
+    if (!profile?.organization_id) return;
     const { data } = await supabase
       .from("sections")
       .select("*")
+      .eq("organization_id", profile.organization_id)
       .order("created_at", { ascending: true });
     setSections(data ?? []);
     setLoading(false);

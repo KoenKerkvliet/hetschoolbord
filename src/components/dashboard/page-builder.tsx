@@ -54,13 +54,16 @@ export function PagesList() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!profile?.organization_id) return;
     fetchPages();
-  }, []);
+  }, [profile?.organization_id]);
 
   async function fetchPages() {
+    if (!profile?.organization_id) return;
     const { data } = await supabase
       .from("pages")
       .select("*")
+      .eq("organization_id", profile.organization_id)
       .order("sort_order", { ascending: true });
     setPages(data ?? []);
     setLoading(false);

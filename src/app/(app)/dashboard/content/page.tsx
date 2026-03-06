@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { SectionItemsEditor } from "@/components/dashboard/section-items-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,22 +16,26 @@ import {
 import type { Section } from "@/lib/types/database";
 
 export default function ContentPage() {
+  const { profile } = useAuth();
   const supabase = createClient();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!profile?.organization_id) return;
+
     async function fetchSections() {
       const { data } = await supabase
         .from("sections")
         .select("*")
+        .eq("organization_id", profile!.organization_id!)
         .order("created_at", { ascending: true });
       setSections(data ?? []);
       setLoading(false);
     }
     fetchSections();
-  }, []);
+  }, [profile?.organization_id]);
 
   if (loading) {
     return (

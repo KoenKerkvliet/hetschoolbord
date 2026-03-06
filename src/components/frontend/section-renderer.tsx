@@ -54,7 +54,7 @@ export function SectionRenderer({ section }: SectionRendererProps) {
             return (
               <a
                 key={item.id}
-                href={url}
+                href={ensureProtocol(url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block"
@@ -96,6 +96,19 @@ export function SectionRenderer({ section }: SectionRendererProps) {
   }
 
   return null;
+}
+
+/**
+ * Zorgt ervoor dat URLs altijd een protocol hebben.
+ * "parnassys.movare.nl" → "https://parnassys.movare.nl"
+ * "http://example.com" → "http://example.com" (ongewijzigd)
+ */
+function ensureProtocol(url: string): string {
+  if (!url) return url;
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("//")) {
+    return url;
+  }
+  return `https://${url}`;
 }
 
 function getIcon(name: string): React.ComponentType<{ className?: string }> | null {
