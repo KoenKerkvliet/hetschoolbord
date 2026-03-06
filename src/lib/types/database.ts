@@ -199,6 +199,25 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_section_access: {
+        Row: {
+          id: string;
+          profile_id: string;
+          section_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          section_id: string;
+          created_at?: string;
+        };
+        Update: {
+          profile_id?: string;
+          section_id?: string;
+        };
+        Relationships: [];
+      };
       page_row_sections: {
         Row: {
           id: string;
@@ -296,3 +315,5 @@ export type PageRowSection = {
   position: string;
   sort_order: number;
 };
+
+export type UserSectionAccess = Database["public"]["Tables"]["user_section_access"]["Row"];

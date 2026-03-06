@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { SettingsForm } from "@/components/dashboard/settings-form";
+import { UserSectionAccessManager } from "@/components/dashboard/user-section-access";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Organization } from "@/lib/types/database";
 
@@ -52,7 +53,10 @@ function SettingsContent() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Instellingen</h1>
       {organization ? (
-        <SettingsForm organization={organization} />
+        <>
+          <SettingsForm organization={organization} />
+          <UserSectionAccessManager organizationId={organization.id} />
+        </>
       ) : (
         <p className="text-muted-foreground">Geen organisatie gekoppeld.</p>
       )}

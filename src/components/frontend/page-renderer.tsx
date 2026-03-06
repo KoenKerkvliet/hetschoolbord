@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@/lib/auth-context";
 import { SectionRenderer } from "@/components/frontend/section-renderer";
 import type {
   Page,
@@ -20,6 +21,7 @@ type RowWithSections = PageRow & {
 
 export function PageRenderer({ page }: PageRendererProps) {
   const supabase = createClient();
+  const { user, profile } = useAuth();
   const [rows, setRows] = useState<RowWithSections[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -35,6 +37,32 @@ export function PageRenderer({ page }: PageRendererProps) {
         setRows([]);
         setLoading(false);
         return;
+      }
+
+      // Bepaal welke secties de gebruiker mag zien
+      let accessibleSectionIds: Set<string> | null = null;
+      const isAdmin =
+        profile?.role === "admin" || profile?.role === "super_admin";
+
+      if (!isAdmin && user) {
+        // Check of er uberhaupt access records bestaan
+        const { data: anyAccess } = await supabase
+          .from("user_section_access")
+          .select("id")
+          .limit(1);
+
+        if (anyAccess && anyAccess.length > 0) {
+          // Access is geconfigureerd, filter op gebruiker
+          const { data: userAccess } = await supabase
+            .from("user_section_access")
+            .select("section_id")
+            .eq("profile_id", user.id);
+
+          accessibleSectionIds = new Set(
+            (userAccess ?? []).map((a) => a.section_id)
+          );
+        }
+        // Als er geen access records zijn, toon alles (accessibleSectionIds blijft null)
       }
 
       const rowsWithSections = await Promise.all(
@@ -60,7 +88,12 @@ export function PageRenderer({ page }: PageRendererProps) {
               ...rs,
               section: sectionsMap.get(rs.section_id) as Section,
             }))
-            .filter((rs) => rs.section);
+            .filter(
+              (rs) =>
+                rs.section &&
+                (accessibleSectionIds === null ||
+                  accessibleSectionIds.has(rs.section_id))
+            );
 
           return { ...row, sections: enriched };
         })
@@ -70,7 +103,7 @@ export function PageRenderer({ page }: PageRendererProps) {
       setLoading(false);
     }
     fetchLayout();
-  }, [page.id, supabase]);
+  }, [page.id, user, profile]);
 
   if (loading) {
     return (
