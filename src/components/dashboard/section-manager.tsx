@@ -44,6 +44,7 @@ export function SectionManager() {
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [sectionTitle, setSectionTitle] = useState("");
   const [sectionType, setSectionType] = useState("snelkoppelingen");
+  const [sectionColumns, setSectionColumns] = useState(4);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,9 +67,13 @@ export function SectionManager() {
     if (!sectionTitle.trim() || !profile?.organization_id) return;
 
     if (editingSection) {
+      const updateData: Record<string, unknown> = { title: sectionTitle };
+      if (editingSection.type === "snelkoppelingen") {
+        updateData.columns = sectionColumns;
+      }
       const { error } = await supabase
         .from("sections")
-        .update({ title: sectionTitle })
+        .update(updateData)
         .eq("id", editingSection.id);
       if (error) {
         toast.error("Fout bij bijwerken blok");
@@ -79,6 +84,7 @@ export function SectionManager() {
       const { error } = await supabase.from("sections").insert({
         title: sectionTitle,
         type: sectionType,
+        columns: sectionType === "snelkoppelingen" ? sectionColumns : 1,
         organization_id: profile.organization_id,
       });
       if (error) {
@@ -109,6 +115,7 @@ export function SectionManager() {
     setEditingSection(section);
     setSectionTitle(section.title);
     setSectionType(section.type);
+    setSectionColumns(section.columns ?? 4);
     setDialogOpen(true);
   }
 
@@ -116,6 +123,7 @@ export function SectionManager() {
     setEditingSection(null);
     setSectionTitle("");
     setSectionType("snelkoppelingen");
+    setSectionColumns(4);
     setDialogOpen(true);
   }
 
@@ -166,6 +174,29 @@ export function SectionManager() {
                 </Select>
               </div>
             )}
+            {(sectionType === "snelkoppelingen" || editingSection?.type === "snelkoppelingen") && (
+              <div className="space-y-2">
+                <Label>Kolommen</Label>
+                <Select
+                  value={String(sectionColumns)}
+                  onValueChange={(v) => setSectionColumns(Number(v))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2">2 per rij</SelectItem>
+                    <SelectItem value="3">3 per rij</SelectItem>
+                    <SelectItem value="4">4 per rij</SelectItem>
+                    <SelectItem value="5">5 per rij</SelectItem>
+                    <SelectItem value="6">6 per rij</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Aantal cards naast elkaar op de frontend.
+                </p>
+              </div>
+            )}
             <Button onClick={handleSaveSection} className="w-full">
               {editingSection ? "Opslaan" : "Aanmaken"}
             </Button>
@@ -205,6 +236,11 @@ export function SectionManager() {
                       )}
                       {section.type}
                     </Badge>
+                    {section.type === "snelkoppelingen" && (
+                      <Badge variant="outline">
+                        {section.columns ?? 4} kolommen
+                      </Badge>
+                    )}
                   </button>
                   <div className="flex gap-1">
                     <Button

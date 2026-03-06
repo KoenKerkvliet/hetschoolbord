@@ -42,10 +42,13 @@ export function SectionRenderer({ section }: SectionRendererProps) {
   if (items.length === 0) return null;
 
   if (section.type === "snelkoppelingen") {
+    const cols = section.columns ?? 4;
+    const gridClass = getGridClass(cols);
+
     return (
       <div className="space-y-3">
         <h3 className="text-lg font-semibold">{section.title}</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <div className={gridClass}>
           {items.map((item) => {
             const iconName = (item.data as Record<string, string>).icon;
             const url = (item.data as Record<string, string>).url;
@@ -96,6 +99,23 @@ export function SectionRenderer({ section }: SectionRendererProps) {
   }
 
   return null;
+}
+
+/**
+ * Geeft de juiste Tailwind grid-klassen terug op basis van het aantal kolommen.
+ * Op mobiel (< sm): max 2 kolommen
+ * Op tablet (sm): max 3 kolommen
+ * Op desktop (md+): het ingestelde aantal kolommen
+ */
+function getGridClass(cols: number): string {
+  const classes: Record<number, string> = {
+    2: "grid grid-cols-2 gap-3",
+    3: "grid grid-cols-2 gap-3 sm:grid-cols-3",
+    4: "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4",
+    5: "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5",
+    6: "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6",
+  };
+  return classes[cols] ?? classes[4];
 }
 
 /**

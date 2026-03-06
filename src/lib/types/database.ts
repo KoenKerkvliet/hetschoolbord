@@ -157,6 +157,7 @@ export type Database = {
           organization_id: string;
           title: string;
           type: string;
+          columns: number;
           created_at: string;
           updated_at: string;
         };
@@ -165,10 +166,12 @@ export type Database = {
           organization_id: string;
           title: string;
           type: string;
+          columns?: number;
         };
         Update: {
           title?: string;
           type?: string;
+          columns?: number;
         };
         Relationships: [];
       };
@@ -293,6 +296,7 @@ export type Section = {
   organization_id: string;
   title: string;
   type: string;
+  columns: number;
   created_at: string;
   updated_at: string;
 };
