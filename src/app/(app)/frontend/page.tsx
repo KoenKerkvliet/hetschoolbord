@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
@@ -102,12 +102,12 @@ function FrontendContent() {
     </div>
   ) : null;
 
-  // If there are published pages, show the first one
+  // If there are published pages, show with page navigation
   if (pages.length > 0) {
     return (
       <div className="min-h-screen bg-background" style={themeOverrides}>
         {dashboardButton}
-        <PageRenderer page={pages[0]} />
+        <PageRendererWithTabs pages={pages} />
       </div>
     );
   }
@@ -122,5 +122,45 @@ function FrontendContent() {
         userRole={profile.role}
       />
     </div>
+  );
+}
+
+/**
+ * Wrapper die pagina-tabbladen toont wanneer er 2+ pagina's zijn.
+ * De tabs verschijnen als een dunne balk onder de hero.
+ */
+function PageRendererWithTabs({ pages }: { pages: Page[] }) {
+  const [activePageId, setActivePageId] = useState(pages[0]?.id);
+
+  const activePage = pages.find((p) => p.id === activePageId) ?? pages[0];
+  const showTabs = pages.length >= 2;
+
+  return (
+    <>
+      <PageRenderer
+        page={activePage}
+        tabBar={
+          showTabs ? (
+            <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
+              <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-6 py-1">
+                {pages.map((page) => (
+                  <button
+                    key={page.id}
+                    onClick={() => setActivePageId(page.id)}
+                    className={`shrink-0 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                      page.id === activePageId
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    {page.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null
+        }
+      />
+    </>
   );
 }

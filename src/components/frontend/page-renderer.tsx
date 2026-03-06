@@ -13,13 +13,14 @@ import type {
 
 interface PageRendererProps {
   page: Page;
+  tabBar?: React.ReactNode;
 }
 
 type RowWithSections = PageRow & {
   sections: (PageRowSection & { section: Section })[];
 };
 
-export function PageRenderer({ page }: PageRendererProps) {
+export function PageRenderer({ page, tabBar }: PageRendererProps) {
   const supabase = createClient();
   const { user, profile } = useAuth();
   const [rows, setRows] = useState<RowWithSections[]>([]);
@@ -162,6 +163,9 @@ export function PageRenderer({ page }: PageRendererProps) {
           </div>
         </div>
       )}
+
+      {/* Tab navigatie (alleen bij 2+ pagina's) */}
+      {tabBar}
 
       {/* Rows — afwisselend wit en lichte primary tint */}
       {rows.map((row, idx) => {
