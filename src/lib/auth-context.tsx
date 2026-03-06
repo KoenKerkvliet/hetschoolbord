@@ -52,27 +52,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    let initialDone = false;
 
-    async function init() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!mounted) return;
-        setUser(user);
-        if (user) {
-          await fetchProfile(user.id);
-        }
-      } catch {
-        // Auth check mislukt (netwerk, etc.)
-        if (!mounted) return;
-        setUser(null);
-        setProfile(null);
-      } finally {
-        if (mounted) setLoading(false);
+    function finishLoading() {
+      if (mounted && !initialDone) {
+        initialDone = true;
+        setLoading(false);
       }
     }
 
-    init();
+    // 1. Snelle sessie-check vanuit localStorage (GEEN netwerkverzoek)
+    //    getSession() leest direct uit opslag, getUser() maakt een netwerkverzoek
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (!mounted || initialDone) return;
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        if (currentUser) {
+          await fetchProfile(currentUser.id);
+        }
+        finishLoading();
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setUser(null);
+        setProfile(null);
+        finishLoading();
+      });
 
+    // 2. Luister naar auth-wijzigingen (handelt sessie-validatie af op achtergrond)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -84,11 +93,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
+      finishLoading();
     });
+
+    // 3. Vangnet: als loading na 5 seconden nog true is, forceer stop
+    const timeout = setTimeout(() => {
+      if (mounted && !initialDone) {
+        console.warn("Auth loading timeout na 5s — forceer laden");
+        finishLoading();
+      }
+    }, 5000);
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
