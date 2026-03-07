@@ -11,6 +11,7 @@ import {
   LogOut,
   PanelsTopLeft,
   Boxes,
+  Building2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -38,6 +39,7 @@ export function AppSidebar({ profile }: AppSidebarProps) {
   const supabase = createClient();
 
   const isAdmin = profile.role === "admin" || profile.role === "super_admin";
+  const isSuperAdmin = profile.role === "super_admin";
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -125,6 +127,30 @@ export function AppSidebar({ profile }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isSuperAdmin && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Super Admin</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === "/dashboard/organizations"}
+                    >
+                      <Link href="/dashboard/organizations">
+                        <Building2 />
+                        <span>Organisaties</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
