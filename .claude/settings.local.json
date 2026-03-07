@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack)",
+      "Bash(npx create-next-app@latest het-schoolbord-new --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --turbopack)",
+      "Bash(find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name 'node_modules' ! -name '.next' -exec cp -r {} \"C:\\\\Users\\\\koenk\\\\OneDrive\\\\___Claude projecten\\\\Het schoolbord/\" ;)",
+      "Bash(npm install)",
+      "Bash(npm run build)",
+      "Bash(git add -A)",
+      "Bash(git commit -m \"Schoon project: fresh Next.js 16 start:*)"
+    ]
+  }
+}
