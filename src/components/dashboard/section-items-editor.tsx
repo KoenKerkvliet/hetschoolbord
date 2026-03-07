@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -42,19 +42,25 @@ export function SectionItemsEditor({
   const [visibleFrom, setVisibleFrom] = useState<string | null>(null);
   const [visibleUntil, setVisibleUntil] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchItems();
+  const fetchItems = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("section_items")
+        .select("*")
+        .eq("section_id", sectionId)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      setItems(data ?? []);
+    } catch (err) {
+      console.error("Fout bij laden items:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [sectionId]);
 
-  async function fetchItems() {
-    const { data } = await supabase
-      .from("section_items")
-      .select("*")
-      .eq("section_id", sectionId)
-      .order("sort_order", { ascending: true });
-    setItems(data ?? []);
-    setLoading(false);
-  }
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
 
   function openCreateDialog() {
     setEditingItem(null);

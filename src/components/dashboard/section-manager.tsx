@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,7 +36,7 @@ import { SectionItemsEditor } from "@/components/dashboard/section-items-editor"
 import type { Section } from "@/lib/types/database";
 
 export function SectionManager() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,26 +47,49 @@ export function SectionManager() {
   const [sectionColumns, setSectionColumns] = useState(4);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  useFetchOnMount(() => {
-    if (authLoading) return; // Wacht tot auth klaar is
-    fetchSections();
-  }, [profile?.organization_id, authLoading]);
+  const orgId = profile?.organization_id;
 
-  async function fetchSections() {
+  // Refetch-functie voor gebruik na CRUD-acties (zet loading NIET opnieuw)
+  const fetchSections = useCallback(async () => {
+    if (!orgId) return;
     try {
-      if (!profile?.organization_id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("sections")
         .select("*")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", orgId!)
         .order("created_at", { ascending: true });
+      if (error) throw error;
       setSections(data ?? []);
     } catch (err) {
       console.error("Fout bij laden blokken:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [orgId]);
+
+  // Initiële data-fetch
+  useEffect(() => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    async function doFetch() {
+      try {
+        const { data, error } = await supabase
+          .from("sections")
+          .select("*")
+          .eq("organization_id", orgId!)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        if (!cancelled) setSections(data ?? []);
+      } catch (err) {
+        console.error("Fout bij laden blokken:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    doFetch();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   async function handleSaveSection() {
     if (!sectionTitle.trim() || !profile?.organization_id) return;

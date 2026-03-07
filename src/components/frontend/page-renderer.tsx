@@ -21,14 +21,11 @@ type RowWithSections = PageRow & {
 
 export function PageRenderer({ page }: PageRendererProps) {
   const supabase = createClient();
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile } = useAuth();
   const [rows, setRows] = useState<RowWithSections[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Gebruik stabiele waarden als deps (geen object-referenties).
-  // user en profile zijn objecten die bij elke auth-wijziging een
-  // nieuwe referentie krijgen, waardoor het effect onnodig opnieuw
-  // draait en data kan wissen bij gefaalde queries.
   const userId = user?.id;
   const userRole = profile?.role;
 
@@ -36,8 +33,6 @@ export function PageRenderer({ page }: PageRendererProps) {
     let cancelled = false;
 
     async function fetchLayout() {
-      if (authLoading) return; // Wacht tot auth klaar is
-
       try {
         const { data: pageRows, error: rowsError } = await supabase
           .from("page_rows")
@@ -130,7 +125,7 @@ export function PageRenderer({ page }: PageRendererProps) {
     return () => {
       cancelled = true;
     };
-  }, [page.id, userId, userRole, authLoading]);
+  }, [page.id, userId, userRole]);
 
   if (loading) {
     return (

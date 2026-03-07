@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { RouteGuard } from "@/components/auth/route-guard";
 import { SettingsForm } from "@/components/dashboard/settings-form";
 import { UserSectionAccessManager } from "@/components/dashboard/user-section-access";
@@ -19,27 +18,40 @@ export default function SettingsPage() {
 }
 
 function SettingsContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useFetchOnMount(async () => {
-    if (authLoading) return; // Wacht tot auth klaar is
-    try {
-      if (!profile?.organization_id) return;
-      const { data } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", profile.organization_id)
-        .single();
-      setOrganization(data);
-    } catch (err) {
-      console.error("Fout bij laden instellingen:", err);
-    } finally {
+  const orgId = profile?.organization_id;
+
+  useEffect(() => {
+    if (!orgId) {
       setLoading(false);
+      return;
     }
-  }, [profile?.organization_id, authLoading]);
+
+    let cancelled = false;
+
+    async function fetchData() {
+      try {
+        const { data, error } = await supabase
+          .from("organizations")
+          .select("*")
+          .eq("id", orgId!)
+          .single();
+        if (error) throw error;
+        if (!cancelled) setOrganization(data);
+      } catch (err) {
+        console.error("Fout bij laden instellingen:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   if (loading) {
     return (

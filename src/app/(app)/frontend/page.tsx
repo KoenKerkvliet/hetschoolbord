@@ -20,7 +20,7 @@ export default function FrontendPage() {
 }
 
 function FrontendContent() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [pages, setPages] = useState<Page[]>([]);
   const [legacyContent, setLegacyContent] = useState<ContentItem[]>([]);
@@ -32,33 +32,34 @@ function FrontendContent() {
   const orgId = profile?.organization_id;
 
   useEffect(() => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function fetchData() {
-      if (authLoading) return; // Wacht tot auth klaar is
       try {
-        if (!orgId) {
-          setLoading(false);
-          return;
-        }
-
         setFetchError(null);
 
         // Fetch organization (voor themakleuren)
-        const { data: orgData } = await supabase
+        const { data: orgData, error: orgError } = await supabase
           .from("organizations")
           .select("*")
-          .eq("id", orgId)
+          .eq("id", orgId!)
           .single();
+        if (orgError) throw orgError;
         if (!cancelled) setOrganization(orgData);
 
         // Fetch published pages
-        const { data: pagesData } = await supabase
+        const { data: pagesData, error: pagesError } = await supabase
           .from("pages")
           .select("*")
-          .eq("organization_id", orgId)
+          .eq("organization_id", orgId!)
           .eq("is_published", true)
           .order("sort_order", { ascending: true });
+        if (pagesError) throw pagesError;
 
         if (!cancelled) {
           setPages(pagesData ?? []);
@@ -70,12 +71,13 @@ function FrontendContent() {
 
         // Also fetch legacy content (fallback if no pages exist)
         if (!pagesData || pagesData.length === 0) {
-          const { data: contentData } = await supabase
+          const { data: contentData, error: contentError } = await supabase
             .from("content")
             .select("*")
-            .eq("organization_id", orgId)
+            .eq("organization_id", orgId!)
             .eq("is_published", true)
             .order("sort_order", { ascending: true });
+          if (contentError) throw contentError;
           if (!cancelled) setLegacyContent(contentData ?? []);
         }
       } catch (err) {
@@ -91,7 +93,7 @@ function FrontendContent() {
     return () => {
       cancelled = true;
     };
-  }, [orgId, authLoading]);
+  }, [orgId]);
 
   // Laadscherm
   if (loading) {

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,7 +60,7 @@ const roleOptions: { value: Role; label: string }[] = [
 ];
 
 export function OrganizationManager() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -80,12 +79,8 @@ export function OrganizationManager() {
   // Expanded state
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
 
-  useFetchOnMount(() => {
-    if (authLoading) return;
-    fetchData();
-  }, [authLoading]);
-
-  async function fetchData() {
+  // Refetch-functie voor gebruik na CRUD-acties
+  const fetchData = useCallback(async () => {
     try {
       const [orgsRes, profilesRes] = await Promise.all([
         supabase
@@ -97,14 +92,45 @@ export function OrganizationManager() {
           .select("*")
           .order("display_name", { ascending: true }),
       ]);
+      if (orgsRes.error) throw orgsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
       setOrganizations(orgsRes.data ?? []);
       setProfiles(profilesRes.data ?? []);
     } catch (err) {
       console.error("Fout bij laden organisaties:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+  }, []);
+
+  // Initiële data-fetch
+  useEffect(() => {
+    let cancelled = false;
+    async function doFetch() {
+      try {
+        const [orgsRes, profilesRes] = await Promise.all([
+          supabase
+            .from("organizations")
+            .select("*")
+            .order("name", { ascending: true }),
+          supabase
+            .from("profiles")
+            .select("*")
+            .order("display_name", { ascending: true }),
+        ]);
+        if (orgsRes.error) throw orgsRes.error;
+        if (profilesRes.error) throw profilesRes.error;
+        if (!cancelled) {
+          setOrganizations(orgsRes.data ?? []);
+          setProfiles(profilesRes.data ?? []);
+        }
+      } catch (err) {
+        console.error("Fout bij laden organisaties:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    doFetch();
+    return () => { cancelled = true; };
+  }, []);
 
   // Slug genereren uit naam
   function generateSlug(name: string): string {

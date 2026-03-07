@@ -1,49 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boxes, PanelsTopLeft, FileText } from "lucide-react";
 
 export default function DashboardPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [sectionCount, setSectionCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
   const [pageCount, setPageCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useFetchOnMount(async () => {
-    if (authLoading) return; // Wacht tot auth klaar is
-    try {
-      if (!profile?.organization_id) return;
-      const orgId = profile.organization_id;
-      const [sections, items, pages] = await Promise.all([
-        supabase
-          .from("sections")
-          .select("*", { count: "exact", head: true })
-          .eq("organization_id", orgId),
-        supabase
-          .from("section_items")
-          .select("*", { count: "exact", head: true }),
-        supabase
-          .from("pages")
-          .select("*", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .eq("is_published", true),
-      ]);
-      setSectionCount(sections.count ?? 0);
-      setItemCount(items.count ?? 0);
-      setPageCount(pages.count ?? 0);
-    } catch {
-      // Stats niet beschikbaar
-    } finally {
+  const orgId = profile?.organization_id;
+
+  useEffect(() => {
+    if (!orgId) {
       setLoading(false);
+      return;
     }
-  }, [profile?.organization_id, authLoading]);
+
+    let cancelled = false;
+
+    async function fetchData() {
+      try {
+        const [sections, items, pages] = await Promise.all([
+          supabase
+            .from("sections")
+            .select("*", { count: "exact", head: true })
+            .eq("organization_id", orgId!),
+          supabase
+            .from("section_items")
+            .select("*", { count: "exact", head: true }),
+          supabase
+            .from("pages")
+            .select("*", { count: "exact", head: true })
+            .eq("organization_id", orgId!)
+            .eq("is_published", true),
+        ]);
+        if (!cancelled) {
+          setSectionCount(sections.count ?? 0);
+          setItemCount(items.count ?? 0);
+          setPageCount(pages.count ?? 0);
+        }
+      } catch (err) {
+        console.error("Fout bij laden dashboard:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   return (
     <div className="space-y-6">

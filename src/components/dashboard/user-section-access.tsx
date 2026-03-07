@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,31 +20,40 @@ export function UserSectionAccessManager({
   const [accessMap, setAccessMap] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [profilesRes, sectionsRes, accessRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .order("display_name", { ascending: true }),
+        supabase.from("sections").select("*").order("title", { ascending: true }),
+        supabase.from("user_section_access").select("*"),
+      ]);
+
+      if (profilesRes.error) throw profilesRes.error;
+      if (sectionsRes.error) throw sectionsRes.error;
+      if (accessRes.error) throw accessRes.error;
+
+      setProfiles(profilesRes.data ?? []);
+      setSections(sectionsRes.data ?? []);
+
+      const accessSet = new Set<string>();
+      (accessRes.data ?? []).forEach((row) => {
+        accessSet.add(`${row.profile_id}:${row.section_id}`);
+      });
+      setAccessMap(accessSet);
+    } catch (err) {
+      console.error("Fout bij laden toegangsbeheer:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [organizationId]);
 
-  async function fetchData() {
-    const [profilesRes, sectionsRes, accessRes] = await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("organization_id", organizationId)
-        .order("display_name", { ascending: true }),
-      supabase.from("sections").select("*").order("title", { ascending: true }),
-      supabase.from("user_section_access").select("*"),
-    ]);
-
-    setProfiles(profilesRes.data ?? []);
-    setSections(sectionsRes.data ?? []);
-
-    const accessSet = new Set<string>();
-    (accessRes.data ?? []).forEach((row) => {
-      accessSet.add(`${row.profile_id}:${row.section_id}`);
-    });
-    setAccessMap(accessSet);
-    setLoading(false);
-  }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function toggleAccess(profileId: string, sectionId: string) {
     const key = `${profileId}:${sectionId}`;

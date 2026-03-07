@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { SectionItemsEditor } from "@/components/dashboard/section-items-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,28 +16,41 @@ import {
 import type { Section } from "@/lib/types/database";
 
 export default function ContentPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  useFetchOnMount(async () => {
-    if (authLoading) return; // Wacht tot auth klaar is
-    try {
-      if (!profile?.organization_id) return;
-      const { data } = await supabase
-        .from("sections")
-        .select("*")
-        .eq("organization_id", profile.organization_id)
-        .order("created_at", { ascending: true });
-      setSections(data ?? []);
-    } catch (err) {
-      console.error("Fout bij laden content:", err);
-    } finally {
+  const orgId = profile?.organization_id;
+
+  useEffect(() => {
+    if (!orgId) {
       setLoading(false);
+      return;
     }
-  }, [profile?.organization_id, authLoading]);
+
+    let cancelled = false;
+
+    async function fetchData() {
+      try {
+        const { data, error } = await supabase
+          .from("sections")
+          .select("*")
+          .eq("organization_id", orgId!)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        if (!cancelled) setSections(data ?? []);
+      } catch (err) {
+        console.error("Fout bij laden content:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   if (loading) {
     return (

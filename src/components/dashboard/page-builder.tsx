@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/auth-context";
-import { useFetchOnMount } from "@/lib/hooks/use-fetch-on-mount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,7 +43,7 @@ import type {
 // ---------- Pages List ----------
 
 export function PagesList() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile } = useAuth();
   const supabase = createClient();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,26 +53,49 @@ export function PagesList() {
   const [editingPage, setEditingPage] = useState<Page | null>(null);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
-  useFetchOnMount(() => {
-    if (authLoading) return; // Wacht tot auth klaar is
-    fetchPages();
-  }, [profile?.organization_id, authLoading]);
+  const orgId = profile?.organization_id;
 
-  async function fetchPages() {
+  // Refetch-functie voor gebruik na CRUD-acties
+  const fetchPages = useCallback(async () => {
+    if (!orgId) return;
     try {
-      if (!profile?.organization_id) return;
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("pages")
         .select("*")
-        .eq("organization_id", profile.organization_id)
+        .eq("organization_id", orgId!)
         .order("sort_order", { ascending: true });
+      if (error) throw error;
       setPages(data ?? []);
     } catch (err) {
       console.error("Fout bij laden pagina's:", err);
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [orgId]);
+
+  // Initiële data-fetch
+  useEffect(() => {
+    if (!orgId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    async function doFetch() {
+      try {
+        const { data, error } = await supabase
+          .from("pages")
+          .select("*")
+          .eq("organization_id", orgId!)
+          .order("sort_order", { ascending: true });
+        if (error) throw error;
+        if (!cancelled) setPages(data ?? []);
+      } catch (err) {
+        console.error("Fout bij laden pagina's:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    doFetch();
+    return () => { cancelled = true; };
+  }, [orgId]);
 
   async function handleSavePage() {
     if (!title.trim() || !slug.trim() || !profile?.organization_id) return;
@@ -299,56 +321,64 @@ function PageBuilder({ page, onBack }: { page: Page; onBack: () => void }) {
   const [heroImageUrl, setHeroImageUrl] = useState(page.hero_image_url ?? "");
   const [heroFullWidth, setHeroFullWidth] = useState(page.hero_full_width);
 
-  useEffect(() => {
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [rowsRes, sectionsRes] = await Promise.all([
+        supabase
+          .from("page_rows")
+          .select("*")
+          .eq("page_id", page.id)
+          .order("sort_order", { ascending: true }),
+        supabase.from("sections").select("*").order("title", { ascending: true }),
+      ]);
+
+      if (rowsRes.error) throw rowsRes.error;
+      if (sectionsRes.error) throw sectionsRes.error;
+
+      const pageRows = rowsRes.data ?? [];
+      setAllSections(sectionsRes.data ?? []);
+
+      // Fetch row sections for each row (separate queries to avoid join issues)
+      const rowsWithSections = await Promise.all(
+        pageRows.map(async (row) => {
+          const { data: rowSections } = await supabase
+            .from("page_row_sections")
+            .select("*")
+            .eq("page_row_id", row.id)
+            .order("sort_order", { ascending: true });
+
+          const sectionIds = (rowSections ?? []).map((rs) => rs.section_id);
+          const { data: sectionsData } =
+            sectionIds.length > 0
+              ? await supabase.from("sections").select("*").in("id", sectionIds)
+              : { data: [] as Section[] };
+
+          const sectionsMap = new Map(
+            (sectionsData ?? []).map((s) => [s.id, s])
+          );
+
+          const enriched = (rowSections ?? [])
+            .map((rs) => ({
+              ...rs,
+              section: sectionsMap.get(rs.section_id) as Section,
+            }))
+            .filter((rs) => rs.section);
+
+          return { ...row, sections: enriched };
+        })
+      );
+
+      setRows(rowsWithSections);
+    } catch (err) {
+      console.error("Fout bij laden pagina-builder:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [page.id]);
 
-  async function fetchData() {
-    const [rowsRes, sectionsRes] = await Promise.all([
-      supabase
-        .from("page_rows")
-        .select("*")
-        .eq("page_id", page.id)
-        .order("sort_order", { ascending: true }),
-      supabase.from("sections").select("*").order("title", { ascending: true }),
-    ]);
-
-    const pageRows = rowsRes.data ?? [];
-    setAllSections(sectionsRes.data ?? []);
-
-    // Fetch row sections for each row (separate queries to avoid join issues)
-    const rowsWithSections = await Promise.all(
-      pageRows.map(async (row) => {
-        const { data: rowSections } = await supabase
-          .from("page_row_sections")
-          .select("*")
-          .eq("page_row_id", row.id)
-          .order("sort_order", { ascending: true });
-
-        const sectionIds = (rowSections ?? []).map((rs) => rs.section_id);
-        const { data: sectionsData } =
-          sectionIds.length > 0
-            ? await supabase.from("sections").select("*").in("id", sectionIds)
-            : { data: [] as Section[] };
-
-        const sectionsMap = new Map(
-          (sectionsData ?? []).map((s) => [s.id, s])
-        );
-
-        const enriched = (rowSections ?? [])
-          .map((rs) => ({
-            ...rs,
-            section: sectionsMap.get(rs.section_id) as Section,
-          }))
-          .filter((rs) => rs.section);
-
-        return { ...row, sections: enriched };
-      })
-    );
-
-    setRows(rowsWithSections);
-    setLoading(false);
-  }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function handleSaveHero() {
     const { error } = await supabase
