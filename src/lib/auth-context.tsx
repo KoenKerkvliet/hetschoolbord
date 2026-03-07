@@ -16,6 +16,7 @@ const PROFILE_CACHE_KEY = "het-schoolbord-profile";
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
+  /** true zolang de auth-check nog niet afgerond is */
   loading: boolean;
   authError: string | null;
   signOut: () => Promise<void>;
@@ -31,10 +32,6 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {},
 });
 
-/**
- * Leest het gecachte profiel uit localStorage.
- * Dit voorkomt het laadscherm bij page refresh.
- */
 function getCachedProfile(): Profile | null {
   try {
     const cached = localStorage.getItem(PROFILE_CACHE_KEY);
@@ -58,13 +55,14 @@ function setCachedProfile(profile: Profile | null) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Initialiseer met gecacht profiel zodat we direct content kunnen tonen
   const cachedProfile =
     typeof window !== "undefined" ? getCachedProfile() : null;
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(cachedProfile);
-  const [loading, setLoading] = useState(cachedProfile === null);
+  // ✅ loading is ALTIJD true tot getSession() afgerond is.
+  // De RouteGuard handelt het "optimistisch renderen met cache" af.
+  const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -83,17 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCachedProfile(data);
         setAuthError(null);
       } catch {
-        // CRUCIAAL: als er al een profiel is (uit cache of eerder geladen),
-        // gooi dat NIET weg. Behoud het zodat de gebruiker content blijft zien.
+        // Als er al een profiel is (uit cache), behoud dat
         setProfile((prev) => {
-          if (prev) return prev; // Behoud werkend profiel
+          if (prev) return prev;
           return null;
         });
-        // Alleen authError zetten als er GEEN werkend profiel is
-        setAuthError((prev) => {
-          // Check of we al een profiel hebben via de state updater
-          return prev ?? "Profiel kon niet geladen worden. Probeer het opnieuw.";
-        });
+        setAuthError(
+          "Profiel kon niet geladen worden. Probeer het opnieuw."
+        );
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,20 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Loading altijd naar false zetten, ongeacht wat er gebeurt
     function finishLoading() {
       if (mounted) {
         setLoading(false);
       }
     }
 
-    // Als we al een gecacht profiel hebben, is loading al false.
-    // We doen alsnog een verse check op de achtergrond.
-    if (cachedProfile) {
-      // loading is al false door de useState(cachedProfile === null)
-    }
-
-    // 1. Sessie-check
+    // 1. Sessie-check (leest token uit localStorage, geen netwerk)
     supabase.auth
       .getSession()
       .then(async ({ data: { session } }) => {
@@ -126,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (currentUser) {
           await fetchProfile(currentUser.id);
         } else {
-          // Geen sessie meer → cache wissen (user is uitgelogd)
+          // Geen sessie → cache wissen
           setProfile(null);
           setCachedProfile(null);
         }
@@ -143,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         finishLoading();
       });
 
-    // 2. Luister naar auth-wijzigingen
+    // 2. Luister naar auth-wijzigingen (token refresh, uitloggen, etc.)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -153,15 +141,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         await fetchProfile(currentUser.id);
       } else {
-        // Uitgelogd → cache wissen
         setProfile(null);
         setCachedProfile(null);
       }
       finishLoading();
     });
 
-    // 3. Vangnet: als loading na 3 seconden nog true is, forceer stop
-    // Dit vangnet werkt ALTIJD, ongeacht of er een cache is of niet
+    // 3. Vangnet: na 3 seconden altijd loading stoppen
     const timeout = setTimeout(() => {
       if (mounted) {
         console.warn("Auth loading timeout na 3s — forceer laden");
@@ -190,7 +176,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       await fetchProfile(user.id);
     } else {
-      // Probeer opnieuw een sessie te krijgen
       try {
         const {
           data: { session },
@@ -200,7 +185,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await fetchProfile(session.user.id);
         }
       } catch {
-        setAuthError("Kan geen verbinding maken. Controleer je internetverbinding.");
+        setAuthError(
+          "Kan geen verbinding maken. Controleer je internetverbinding."
+        );
       }
     }
   };

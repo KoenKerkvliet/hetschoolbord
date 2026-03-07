@@ -19,6 +19,7 @@ export function RouteGuard({
   const { user, profile, loading, authError, refreshProfile } = useAuth();
   const router = useRouter();
 
+  // Redirect-logica: alleen uitvoeren NADAT loading klaar is
   useEffect(() => {
     if (loading) return;
 
@@ -33,7 +34,25 @@ export function RouteGuard({
     }
   }, [user, profile, loading, requiredRoles, redirectTo, router]);
 
-  // Stap 1: Auth is nog aan het laden → laadscherm
+  // ─── OPTIMISTISCH RENDEREN ───
+  // Auth-check loopt nog, maar we HEBBEN een gecacht profiel.
+  // Toon de content alvast zodat de gebruiker geen laadscherm ziet.
+  // Als de auth-check later faalt, handelt de useEffect redirect af.
+  if (loading && profile) {
+    // Check rolbeperking ook optimistisch
+    if (requiredRoles && !requiredRoles.includes(profile.role)) {
+      // Verkeerde rol → toon loading (redirect volgt na auth-check)
+      return (
+        <div className="flex min-h-screen items-center justify-center">
+          <p className="text-muted-foreground">Laden...</p>
+        </div>
+      );
+    }
+    // ✅ Profiel gecacht + rol OK → toon content meteen
+    return <>{children}</>;
+  }
+
+  // ─── GEEN CACHE, NOG AAN HET LADEN ───
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -42,11 +61,12 @@ export function RouteGuard({
     );
   }
 
-  // Stap 2: Geen user → redirect loopt via useEffect, toon niets
+  // ─── AUTH-CHECK AFGEROND ───
+
+  // Geen user → redirect loopt via useEffect
   if (!user) return null;
 
-  // Stap 3: User bestaat maar profiel ontbreekt → NOOIT een wit scherm!
-  // Toon foutmelding met retry-knop zodat de gebruiker kan herstellen.
+  // User bestaat maar profiel ontbreekt → foutscherm met retry
   if (!profile) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
@@ -64,9 +84,9 @@ export function RouteGuard({
     );
   }
 
-  // Stap 4: Verkeerde rol → redirect loopt via useEffect, toon niets
+  // Verkeerde rol → redirect loopt via useEffect
   if (requiredRoles && !requiredRoles.includes(profile.role)) return null;
 
-  // Stap 5: Alles OK → toon de content
+  // ✅ Alles OK → toon content
   return <>{children}</>;
 }
