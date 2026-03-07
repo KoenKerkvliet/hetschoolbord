@@ -25,86 +25,112 @@ export function PageRenderer({ page }: PageRendererProps) {
   const [rows, setRows] = useState<RowWithSections[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Gebruik stabiele waarden als deps (geen object-referenties).
+  // user en profile zijn objecten die bij elke auth-wijziging een
+  // nieuwe referentie krijgen, waardoor het effect onnodig opnieuw
+  // draait en data kan wissen bij gefaalde queries.
+  const userId = user?.id;
+  const userRole = profile?.role;
+
   useEffect(() => {
+    let cancelled = false;
+
     async function fetchLayout() {
       if (authLoading) return; // Wacht tot auth klaar is
-      const { data: pageRows } = await supabase
-        .from("page_rows")
-        .select("*")
-        .eq("page_id", page.id)
-        .order("sort_order", { ascending: true });
 
-      if (!pageRows || pageRows.length === 0) {
-        setRows([]);
-        setLoading(false);
-        return;
-      }
+      try {
+        const { data: pageRows, error: rowsError } = await supabase
+          .from("page_rows")
+          .select("*")
+          .eq("page_id", page.id)
+          .order("sort_order", { ascending: true });
 
-      // Bepaal welke secties de gebruiker mag zien
-      let accessibleSectionIds: Set<string> | null = null;
-      const isAdmin =
-        profile?.role === "admin" || profile?.role === "super_admin";
+        if (cancelled) return;
+        if (rowsError) throw rowsError;
 
-      if (!isAdmin && user) {
-        // Check of er uberhaupt access records bestaan
-        const { data: anyAccess } = await supabase
-          .from("user_section_access")
-          .select("id")
-          .limit(1);
-
-        if (anyAccess && anyAccess.length > 0) {
-          // Access is geconfigureerd, filter op gebruiker
-          const { data: userAccess } = await supabase
-            .from("user_section_access")
-            .select("section_id")
-            .eq("profile_id", user.id);
-
-          accessibleSectionIds = new Set(
-            (userAccess ?? []).map((a) => a.section_id)
-          );
+        if (!pageRows || pageRows.length === 0) {
+          setRows([]);
+          return;
         }
-        // Als er geen access records zijn, toon alles (accessibleSectionIds blijft null)
-      }
 
-      const rowsWithSections = await Promise.all(
-        pageRows.map(async (row) => {
-          const { data: rowSections } = await supabase
-            .from("page_row_sections")
-            .select("*")
-            .eq("page_row_id", row.id)
-            .order("sort_order", { ascending: true });
+        // Bepaal welke secties de gebruiker mag zien
+        let accessibleSectionIds: Set<string> | null = null;
+        const isAdmin = userRole === "admin" || userRole === "super_admin";
 
-          const sectionIds = (rowSections ?? []).map((rs) => rs.section_id);
-          const { data: sectionsData } =
-            sectionIds.length > 0
-              ? await supabase.from("sections").select("*").in("id", sectionIds)
-              : { data: [] as Section[] };
+        if (!isAdmin && userId) {
+          const { data: anyAccess } = await supabase
+            .from("user_section_access")
+            .select("id")
+            .limit(1);
 
-          const sectionsMap = new Map(
-            (sectionsData ?? []).map((s) => [s.id, s])
-          );
+          if (anyAccess && anyAccess.length > 0) {
+            const { data: userAccess } = await supabase
+              .from("user_section_access")
+              .select("section_id")
+              .eq("profile_id", userId);
 
-          const enriched = (rowSections ?? [])
-            .map((rs) => ({
-              ...rs,
-              section: sectionsMap.get(rs.section_id) as Section,
-            }))
-            .filter(
-              (rs) =>
-                rs.section &&
-                (accessibleSectionIds === null ||
-                  accessibleSectionIds.has(rs.section_id))
+            accessibleSectionIds = new Set(
+              (userAccess ?? []).map((a) => a.section_id)
+            );
+          }
+        }
+
+        if (cancelled) return;
+
+        const rowsWithSections = await Promise.all(
+          pageRows.map(async (row) => {
+            const { data: rowSections } = await supabase
+              .from("page_row_sections")
+              .select("*")
+              .eq("page_row_id", row.id)
+              .order("sort_order", { ascending: true });
+
+            const sectionIds = (rowSections ?? []).map((rs) => rs.section_id);
+            const { data: sectionsData } =
+              sectionIds.length > 0
+                ? await supabase
+                    .from("sections")
+                    .select("*")
+                    .in("id", sectionIds)
+                : { data: [] as Section[] };
+
+            const sectionsMap = new Map(
+              (sectionsData ?? []).map((s) => [s.id, s])
             );
 
-          return { ...row, sections: enriched };
-        })
-      );
+            const enriched = (rowSections ?? [])
+              .map((rs) => ({
+                ...rs,
+                section: sectionsMap.get(rs.section_id) as Section,
+              }))
+              .filter(
+                (rs) =>
+                  rs.section &&
+                  (accessibleSectionIds === null ||
+                    accessibleSectionIds.has(rs.section_id))
+              );
 
-      setRows(rowsWithSections);
-      setLoading(false);
+            return { ...row, sections: enriched };
+          })
+        );
+
+        if (!cancelled) {
+          setRows(rowsWithSections);
+        }
+      } catch (err) {
+        // Bij een fout: behoud de bestaande data (niet wissen!)
+        console.error("Fout bij laden pagina-layout:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
+
     fetchLayout();
-  }, [page.id, user, profile, authLoading]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page.id, userId, userRole, authLoading]);
 
   if (loading) {
     return (

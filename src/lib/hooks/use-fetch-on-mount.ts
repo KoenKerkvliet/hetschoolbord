@@ -5,13 +5,13 @@ import { useEffect, useRef, useCallback } from "react";
 /**
  * Robuuste data-fetch hook die garandeert dat data geladen wordt bij:
  * 1. Component mount (eerste keer)
- * 2. Dependency wijziging (bijv. organization_id)
- * 3. Tab weer zichtbaar (na wisselen naar andere site/tab)
- * 4. Pagina hersteld uit browser-cache (bfcache / pageshow)
+ * 2. Dependency wijziging (bijv. organization_id of authLoading)
+ * 3. Pagina hersteld uit browser-cache (bfcache / pageshow)
  *
- * Dit lost het probleem op dat Next.js Router Cache component state
- * kan bewaren bij client-side navigatie, waardoor useEffect niet
- * opnieuw draait.
+ * BEWUST GEEN visibilitychange: React state blijft behouden bij
+ * tab-switches. Re-fetchen bij tab-focus is destructief omdat
+ * Supabase queries kunnen falen met een verlopen token, waardoor
+ * bestaande data gewist wordt (setSections(null ?? []) → leeg).
  */
 export function useFetchOnMount(
   fetchFn: () => void | Promise<void>,
@@ -48,25 +48,18 @@ export function useFetchOnMount(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  // Luister naar tab-focus en bfcache events
+  // Luister naar bfcache events (pageshow met persisted=true)
+  // Dit dekt het geval dat de browser de pagina uit disk-cache herstelt.
   useEffect(() => {
-    function handleVisibilityChange() {
-      if (document.visibilityState === "visible" && mountedRef.current) {
-        safeFetch();
-      }
-    }
-
     function handlePageShow(event: PageTransitionEvent) {
       if (event.persisted && mountedRef.current) {
         safeFetch();
       }
     }
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("pageshow", handlePageShow);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
