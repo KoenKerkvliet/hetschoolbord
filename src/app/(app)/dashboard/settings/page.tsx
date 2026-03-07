@@ -19,12 +19,13 @@ export default function SettingsPage() {
 }
 
 function SettingsContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
 
   useFetchOnMount(async () => {
+    if (authLoading) return; // Wacht tot auth klaar is
     try {
       if (!profile?.organization_id) return;
       const { data } = await supabase
@@ -38,7 +39,7 @@ function SettingsContent() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authLoading]);
 
   if (loading) {
     return (

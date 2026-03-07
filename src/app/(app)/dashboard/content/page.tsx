@@ -17,13 +17,14 @@ import {
 import type { Section } from "@/lib/types/database";
 
 export default function ContentPage() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useFetchOnMount(async () => {
+    if (authLoading) return; // Wacht tot auth klaar is
     try {
       if (!profile?.organization_id) return;
       const { data } = await supabase
@@ -37,7 +38,7 @@ export default function ContentPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authLoading]);
 
   if (loading) {
     return (

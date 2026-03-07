@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Boxes, PanelsTopLeft, FileText } from "lucide-react";
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [sectionCount, setSectionCount] = useState<number | null>(null);
   const [itemCount, setItemCount] = useState<number | null>(null);
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useFetchOnMount(async () => {
+    if (authLoading) return; // Wacht tot auth klaar is
     try {
       if (!profile?.organization_id) return;
       const orgId = profile.organization_id;
@@ -42,7 +43,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authLoading]);
 
   return (
     <div className="space-y-6">

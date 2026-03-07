@@ -44,7 +44,7 @@ import type {
 // ---------- Pages List ----------
 
 export function PagesList() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,8 +55,9 @@ export function PagesList() {
   const [selectedPageId, setSelectedPageId] = useState<string | null>(null);
 
   useFetchOnMount(() => {
+    if (authLoading) return; // Wacht tot auth klaar is
     fetchPages();
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authLoading]);
 
   async function fetchPages() {
     try {

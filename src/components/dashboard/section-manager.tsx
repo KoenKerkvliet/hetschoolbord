@@ -37,7 +37,7 @@ import { SectionItemsEditor } from "@/components/dashboard/section-items-editor"
 import type { Section } from "@/lib/types/database";
 
 export function SectionManager() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,8 +49,9 @@ export function SectionManager() {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useFetchOnMount(() => {
+    if (authLoading) return; // Wacht tot auth klaar is
     fetchSections();
-  }, [profile?.organization_id]);
+  }, [profile?.organization_id, authLoading]);
 
   async function fetchSections() {
     try {

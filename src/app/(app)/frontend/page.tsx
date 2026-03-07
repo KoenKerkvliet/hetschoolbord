@@ -20,7 +20,7 @@ export default function FrontendPage() {
 }
 
 function FrontendContent() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const supabase = createClient();
   const [pages, setPages] = useState<Page[]>([]);
   const [legacyContent, setLegacyContent] = useState<ContentItem[]>([]);
@@ -35,6 +35,7 @@ function FrontendContent() {
     let cancelled = false;
 
     async function fetchData() {
+      if (authLoading) return; // Wacht tot auth klaar is
       try {
         if (!orgId) {
           setLoading(false);
@@ -90,7 +91,7 @@ function FrontendContent() {
     return () => {
       cancelled = true;
     };
-  }, [orgId]);
+  }, [orgId, authLoading]);
 
   // Laadscherm
   if (loading) {

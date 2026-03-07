@@ -21,12 +21,13 @@ type RowWithSections = PageRow & {
 
 export function PageRenderer({ page }: PageRendererProps) {
   const supabase = createClient();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [rows, setRows] = useState<RowWithSections[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchLayout() {
+      if (authLoading) return; // Wacht tot auth klaar is
       const { data: pageRows } = await supabase
         .from("page_rows")
         .select("*")
@@ -103,7 +104,7 @@ export function PageRenderer({ page }: PageRendererProps) {
       setLoading(false);
     }
     fetchLayout();
-  }, [page.id, user, profile]);
+  }, [page.id, user, profile, authLoading]);
 
   if (loading) {
     return (
